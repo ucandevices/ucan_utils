@@ -18,6 +18,8 @@
 
 #include "uccb.h"
 
+extern int can2pty(int pty, int socket, struct canfd_frame *frame, struct timeval * tv);
+
 int main(int argc, char **argv)
 {
 	fd_set rdfs;
@@ -29,6 +31,11 @@ int main(int argc, char **argv)
 	int tstamp = 0;
 	int is_open = 0;
 	struct can_filter fi;
+	int enable_canfd = 1;
+
+	struct canfd_frame frame;
+    struct timeval tv;
+
 
 	/* check command line options */
 	if (argc != 3) {
@@ -43,10 +50,10 @@ int main(int argc, char **argv)
 	}
 
 	/* open usblib uccb */
-	if (uccb_open_device() < 0) {
-		printf("error openig USB device \n");
-		goto usb_not_opened;
-	};
+	// if (uccb_open_device() < 0) {
+		// printf("error openig USB device \n");
+		// goto usb_not_opened;
+	// };
 
 	printf("USB device opened\n");
 	
@@ -61,6 +68,18 @@ int main(int argc, char **argv)
 	addr.can_family = AF_CAN;
 	addr.can_ifindex = if_nametoindex(argv[2]);
 
+	// if (mtu != CANFD_MTU) {
+			// printf("CAN interface is not CAN FD capable - sorry.\n");
+			// return 1;
+		// }
+
+	/* interface is ok - try to switch the socket into CAN FD mode */
+	if (setsockopt(s, SOL_CAN_RAW, CAN_RAW_FD_FRAMES,
+				&enable_canfd, sizeof(enable_canfd))){
+		printf("error when enabling CAN FD support\n");
+		return 1;
+	}
+
 	/* disable reception of CAN frames until we are opened by 'O' */
 	setsockopt(s, SOL_CAN_RAW, CAN_RAW_FILTER, NULL, 0);
 
@@ -68,6 +87,12 @@ int main(int argc, char **argv)
 		perror("bind");
 		return 1;
 	}
+
+	// /* send frame */
+	// if (write(s, &frame, required_mtu) != required_mtu) {
+	// 	perror("write");
+	// 	return 1;
+	// }
 
 	/* open filter by default */
 	fi.can_id   = 0;
@@ -88,10 +113,20 @@ int main(int argc, char **argv)
 			return 1;
 		}
 
+	if (FD_ISSET(s, &rdfs))
+	{
+		if (can2pty(p, s, &frame, &tv )) {
+		
+		}
+	}
+		
+
+
 		if (FD_ISSET(0, &rdfs)) {
 			running = 0;
 			continue;
 		}
+		
 	}
 
 	uccb_close_device();
