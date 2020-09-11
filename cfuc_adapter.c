@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <termios.h>
 #include <unistd.h>
 
 #include <net/if.h>
@@ -16,14 +17,49 @@
 #include <linux/can/raw.h>
 #include <linux/sockios.h>
 
-#include "uccb.h"
+#include "cfuc_driver.h"
 
-extern int can2pty(int pty, int socket, struct canfd_frame *frame, struct timeval * tv);
+
+// max frame size 
+#define SLC_MTU 64u
+
+int readCANFrameFromSocket(int socket, struct canfd_frame *frame, struct timeval * tv)
+{
+	int nbytes;
+
+ 	struct canfd_frame cfd;
+
+    nbytes = read(socket, &frame, CANFD_MTU);
+    if (nbytes == CANFD_MTU) {
+            printf("got CAN FD frame with length %d\n", cfd.len);
+            /* cfd.flags contains valid data */
+    } else if (nbytes == CAN_MTU) {
+            printf("got legacy CAN frame with length %d\n", cfd.len);
+            /* cfd.flags is undefined */
+    } else {
+            fprintf(stderr, "read: invalid CAN(FD) frame\n");
+            return 1;
+    }
+
+    if (ioctl(socket, 0x8906, &tv) < 0)
+    {
+        perror("SIOCGSTAMP");
+	}
+	return 0;
+}
+
+int writeCANFrameToSocket(int socket, struct canfd_frame *frame)
+{
+		// /* send frame */
+	if (write(socket, frame, CANFD_MTU) != CANFD_MTU) {
+		perror("write");
+		return 1;
+	}
+}
 
 int main(int argc, char **argv)
 {
-	fd_set rdfs;
-	int p; /* pty master file */ 
+	fd_set rdfs; 
 	int s; /* can raw socket */ 
 	struct sockaddr_can addr;
 	int select_stdin = 0;
@@ -50,12 +86,11 @@ int main(int argc, char **argv)
 	}
 
 	/* open usblib uccb */
-	// if (uccb_open_device() < 0) {
+	// if (cfuc_open_device() < 0) {
 		// printf("error openig USB device \n");
 		// goto usb_not_opened;
 	// };
-
-	printf("USB device opened\n");
+	// printf("USB device opened\n");
 	
 
 	/* open socket */
@@ -68,73 +103,38 @@ int main(int argc, char **argv)
 	addr.can_family = AF_CAN;
 	addr.can_ifindex = if_nametoindex(argv[2]);
 
-	// if (mtu != CANFD_MTU) {
-			// printf("CAN interface is not CAN FD capable - sorry.\n");
-			// return 1;
-		// }
-
 	/* interface is ok - try to switch the socket into CAN FD mode */
 	if (setsockopt(s, SOL_CAN_RAW, CAN_RAW_FD_FRAMES,
 				&enable_canfd, sizeof(enable_canfd))){
 		printf("error when enabling CAN FD support\n");
 		return 1;
 	}
-
-	/* disable reception of CAN frames until we are opened by 'O' */
-	setsockopt(s, SOL_CAN_RAW, CAN_RAW_FILTER, NULL, 0);
-
 	if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 		perror("bind");
 		return 1;
 	}
 
-	// /* send frame */
-	// if (write(s, &frame, required_mtu) != required_mtu) {
-	// 	perror("write");
-	// 	return 1;
-	// }
+
 
 	/* open filter by default */
 	fi.can_id   = 0;
 	fi.can_mask = 0;
 
 	while (running) {
-
-		FD_ZERO(&rdfs);
-
-		if (select_stdin)
-			FD_SET(0, &rdfs);
-
-		FD_SET(p, &rdfs);
-		FD_SET(s, &rdfs);
-
-		if (select(s+1, &rdfs, NULL, NULL, NULL) < 0) {
-			perror("select");
-			return 1;
+		if (readCANFrameFromSocket(s,&frame,&tv))
+		{// new can frame from socket send to usb
+			cfuc_send_to_usb(&frame,&tv);
 		}
 
-	if (FD_ISSET(s, &rdfs))
-	{
-		if (can2pty(p, s, &frame, &tv )) {
-		
+		if (cfuc_get_frame_from_usb(&frame))
+		{// new data from usb
+			writeCANFrameToSocket(s,&frame);
 		}
 	}
-		
 
-
-		if (FD_ISSET(0, &rdfs)) {
-			running = 0;
-			continue;
-		}
-		
-	}
-
-	uccb_close_device();
-	close(p);
+	cfuc_close_device();
 	close(s);
 usb_not_opened:
 	
-
-
 	return 0;
 }
