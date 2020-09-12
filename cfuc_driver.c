@@ -8,12 +8,13 @@
 
 #include "./stm32g4xx_hal_fdcan.h"
 #include "./ucan_fd_protocol_stm32g431.h"
+#include "./cfuc_driver.h"
 
 #define EP_OUT (1 | LIBUSB_ENDPOINT_OUT)
 #define EP_IN (1 | LIBUSB_ENDPOINT_IN)
 
 static struct libusb_device_handle *devh = NULL;
-
+static int cfuc_send_to_usb(struct timeval * tv);
 
 // init struct
 UCAN_InitFrameDef ucan_initframe = {
@@ -88,17 +89,34 @@ int cfuc_close_device(void)
     return 0;
 }
 
-int cfuc_send_to_usb(struct canfd_frame *frame, struct timeval * tv)
-{
-    static UCAN_TxFrameDef cfuc_tx;
-    int bulkres = 0;
-    int tranfered = 0;
+static UCAN_TxFrameDef cfuc_tx;
 
+int cfuc_can_tx(struct can_frame* frame, struct timeval * tv)
+{
+    cfuc_tx.frame_type = UCAN_FD_TX;
+    cfuc_tx.can_tx_header.DataLength = (uint32_t)frame->can_dlc;
+    cfuc_tx.can_tx_header.FDFormat = FDCAN_CLASSIC_CAN;
+    cfuc_tx.can_tx_header.Identifier = frame->can_id;
+    memcpy((void*)cfuc_tx.can_data,(void*)frame->data,cfuc_tx.can_tx_header.DataLength);
+
+    return cfuc_send_to_usb(tv);
+}
+
+int cfuc_canfd_tx(struct canfd_frame* frame, struct timeval * tv)
+{
     cfuc_tx.frame_type = UCAN_FD_TX;
     cfuc_tx.can_tx_header.DataLength = (uint32_t)frame->len << 16;
     cfuc_tx.can_tx_header.FDFormat = FDCAN_FD_CAN;
+    cfuc_tx.can_tx_header.Identifier = frame->can_id;
     memcpy((void*)cfuc_tx.can_data,(void*)frame->data,cfuc_tx.can_tx_header.DataLength);
 
+    return cfuc_send_to_usb(tv);
+}
+
+static int cfuc_send_to_usb(struct timeval * tv)
+{   
+    int bulkres = 0;
+    int tranfered = 0;
 
     printf("Send to USB\n");
     bulkres = libusb_bulk_transfer(devh, EP_OUT, (unsigned char*)&cfuc_tx, sizeof(ucan_initframe), &tranfered, 100);
@@ -112,13 +130,13 @@ int cfuc_send_to_usb(struct canfd_frame *frame, struct timeval * tv)
     return 0;
 }
 
-int cfuc_get_frame_from_usb(struct canfd_frame* frame)
+int cfuc_get_frame_from_usb(uint8_t* buff_frame)
 {
     int bulkres;
-    static int tranfered;
-    static unsigned char data[128] = {0, 1, 2, 3, 4};
-
-    bulkres = libusb_bulk_transfer(devh, EP_IN, data, sizeof(data), &tranfered, 1);
+    int tranfered;
+    static uint8_t usb_buff[MAX_CFUC_USB_FRAME_SIZE] = {0, 1, 2, 3, 4};
+  
+    bulkres = libusb_bulk_transfer(devh, EP_IN, usb_buff, MAX_CFUC_USB_FRAME_SIZE, &tranfered, 1);
     if(bulkres == 0)
     {
         printf("Transfer result %i \n", bulkres);
@@ -127,23 +145,37 @@ int cfuc_get_frame_from_usb(struct canfd_frame* frame)
             printf("USB %d> ", tranfered);
             int loop;
             for(loop = 0; loop < tranfered; loop++)
-                printf("%02X ", data[loop]);
+                printf("%02X ", usb_buff[loop]);
             printf("\n");
 
-            UCAN_RxFrameDef* rx = (UCAN_RxFrameDef*)data;
+            UCAN_RxFrameDef* rx = (UCAN_RxFrameDef*)usb_buff;
             if (rx->frame_type == UCAN_FD_RX)
             {
-                uint8_t can_len = rx->can_rx_header.DataLength >> 16;
-                printf("CANrx\n");
-                frame->can_id = rx->can_rx_header.Identifier;
-                frame->len = can_len;
+                if(rx->can_rx_header.FDFormat == FDCAN_CLASSIC_CAN)
+                {
+                    struct can_frame* can = (struct can_frame*)buff_frame;
+                    uint8_t can_len = rx->can_rx_header.DataLength;
+                    printf("CAN rx\n");
+                    can->can_id = rx->can_rx_header.Identifier;
+                    can->can_dlc = can_len;
+                    memcpy((void*)can->data,(void*)rx->can_data,can_len);  
 
-                memcpy((void*)frame->data,(void*)rx->can_data,can_len);  
+                    return 0;
 
-                return 1;
+                } else // FDCAN
+                {
+                    struct canfd_frame* fdcan = (struct canfd_frame*)buff_frame;
+                    uint8_t can_len = rx->can_rx_header.DataLength >> 16;
+                    printf("CANFD rx\n");
+                    fdcan->can_id = rx->can_rx_header.Identifier;
+                    fdcan->len = can_len;
+                    memcpy((void*)fdcan->data,(void*)rx->can_data,can_len);  
+
+                    return 0;   
+                }                
             } 
         }
     }
-    return 0;
+    return -1;
 }
 

@@ -18,37 +18,30 @@
 #include <linux/sockios.h>
 
 #include "cfuc_driver.h"
+#include "rust_additional.h"
 
-
-// max frame size 
-#define SLC_MTU 64u
-
-int readCANFrameFromSocket(int socket, struct canfd_frame *frame, struct timeval * tv)
+int readCANFrameFromSocket(int socket,uint8_t* buff, struct timeval * tv)
 {
 	int nbytes;
-
- 	struct canfd_frame cfd;
-
-    nbytes = read(socket, &frame, CANFD_MTU);
+    nbytes = read(socket, buff, CANFD_MTU);
     if (nbytes == CANFD_MTU) {
-            printf("got CAN FD frame with length %d\n", cfd.len);
-            /* cfd.flags contains valid data */
+            printf("got CAN FD frame with length %d\n", ((struct canfd_frame*)buff)->len);
     } else if (nbytes == CAN_MTU) {
-            printf("got legacy CAN frame with length %d\n", cfd.len);
-            /* cfd.flags is undefined */
+            printf("got legacy CAN frame with length %d\n", ((struct can_frame*)buff)->can_dlc);
     } else {
-            fprintf(stderr, "read: invalid CAN(FD) frame\n");
-            return 1;
+            // fprintf(stderr, "read: invalid CAN(FD) frame\n");
+            return -1;
     }
 
     if (ioctl(socket, 0x8906, &tv) < 0)
     {
+		return -1;
         perror("SIOCGSTAMP");
 	}
-	return 0;
+	return nbytes;
 }
 
-int writeCANFrameToSocket(int socket, struct canfd_frame *frame)
+int writeCANFrameToSocket(int socket, uint8_t *frame)
 {
 		// /* send frame */
 	if (write(socket, frame, CANFD_MTU) != CANFD_MTU) {
@@ -59,19 +52,16 @@ int writeCANFrameToSocket(int socket, struct canfd_frame *frame)
 
 int main(int argc, char **argv)
 {
-	fd_set rdfs; 
+	static uint8_t can_buff[CANFD_MTU];
+	static uint8_t can_buff_usb[CANFD_MTU];
+		
 	int s; /* can raw socket */ 
 	struct sockaddr_can addr;
-	int select_stdin = 0;
 	int running = 1;
-	int tstamp = 0;
-	int is_open = 0;
 	struct can_filter fi;
 	int enable_canfd = 1;
 
-	struct canfd_frame frame;
     struct timeval tv;
-
 
 	/* check command line options */
 	if (argc != 3) {
@@ -86,11 +76,12 @@ int main(int argc, char **argv)
 	}
 
 	/* open usblib uccb */
-	// if (cfuc_open_device() < 0) {
-		// printf("error openig USB device \n");
-		// goto usb_not_opened;
-	// };
-	// printf("USB device opened\n");
+	if (cfuc_open_device() < 0) {
+		printf("error openig USB device \n");
+		goto usb_not_opened;
+	};
+	printf("USB device opened\n");
+	
 	
 
 	/* open socket */
@@ -109,26 +100,32 @@ int main(int argc, char **argv)
 		printf("error when enabling CAN FD support\n");
 		return 1;
 	}
+
+	fcntl(s, F_SETFL, O_NONBLOCK);
+
 	if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 		perror("bind");
 		return 1;
 	}
-
-
 
 	/* open filter by default */
 	fi.can_id   = 0;
 	fi.can_mask = 0;
 
 	while (running) {
-		if (readCANFrameFromSocket(s,&frame,&tv))
-		{// new can frame from socket send to usb
-			cfuc_send_to_usb(&frame,&tv);
-		}
 
-		if (cfuc_get_frame_from_usb(&frame))
+		uint8_t ftype = readCANFrameFromSocket(s,can_buff,&tv);
+		if (ftype == CANFD_MTU)
+		{
+			cfuc_canfd_tx((struct canfd_frame*)can_buff,&tv);
+		} else if (ftype == CAN_MTU)
+		{
+			cfuc_can_tx((struct can_frame*)can_buff,&tv);
+		}
+		
+		if (cfuc_get_frame_from_usb(can_buff_usb) == 0)
 		{// new data from usb
-			writeCANFrameToSocket(s,&frame);
+			writeCANFrameToSocket(s,can_buff_usb);
 		}
 	}
 
