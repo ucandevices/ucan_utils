@@ -48,6 +48,7 @@ int writeCANFrameToSocket(int socket, uint8_t *frame)
 		perror("write");
 		return 1;
 	}
+	return 0;
 }
 
 int main(int argc, char **argv)

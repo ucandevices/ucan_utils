@@ -77,7 +77,7 @@ typedef struct {
   */
 typedef struct {
 	UCAN_FRAME_TYPE frame_type; /*!< Frame type is @ref UCAN_FD_TX.*/
-	FDCAN_TxEventFifoTypeDef can_tx_header; /*!< FDCAN Tx event FIFO structure definition @ref FDCAN_TxEventFifoTypeDef.*/
+	FDCAN_TxHeaderTypeDef can_tx_header; /*!< FDCAN Tx event FIFO structure definition @ref FDCAN_TxHeaderTypeDef.*/
 	uint8_t can_data[MAX_CAN_FRAME_SIZE]; /* Data CAN buffer */
 } UCAN_TxFrameDef;
 

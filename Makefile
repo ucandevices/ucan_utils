@@ -10,7 +10,7 @@ SRC_PATH = .
 # Space-separated pkg-config libraries used by this project
 LIBS = libusb-1.0
 # General compiler flags
-COMPILE_FLAGS = -std=c99 -Wall -Wextra -g
+COMPILE_FLAGS = -std=c99 -Wall -Wextra -g -fshort-enums
 # Additional release-specific flags
 RCOMPILE_FLAGS = -D NDEBUG
 # Additional debug-specific flags
