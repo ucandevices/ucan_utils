@@ -51,10 +51,11 @@ int writeCANFrameToSocket(int socket, uint8_t *frame)
 	return 0;
 }
 
+
 int main(int argc, char **argv)
 {
-	static uint8_t can_buff[CANFD_MTU];
-	static uint8_t can_buff_usb[CANFD_MTU];
+	static uint8_t can_buff[MAX_CFUC_USB_FRAME_SIZE];
+	static uint8_t can_buff_usb[MAX_CFUC_USB_FRAME_SIZE];
 		
 	int s; /* can raw socket */ 
 	struct sockaddr_can addr;
@@ -63,6 +64,7 @@ int main(int argc, char **argv)
 	int enable_canfd = 1;
 
     struct timeval tv;
+
 
 	/* check command line options */
 	if (argc != 3) {
@@ -113,6 +115,7 @@ int main(int argc, char **argv)
 	fi.can_id   = 0;
 	fi.can_mask = 0;
 
+
 	while (running) {
 
 		uint8_t ftype = readCANFrameFromSocket(s,can_buff,&tv);
@@ -124,15 +127,15 @@ int main(int argc, char **argv)
 			cfuc_can_tx((struct can_frame*)can_buff,&tv);
 		}
 		
-		if (cfuc_get_frame_from_usb(can_buff_usb) == 0)
-		{// new data from usb
-			writeCANFrameToSocket(s,can_buff_usb);
-		}
+		// if (cfuc_get_frame_from_usb(can_buff_usb) == 0)
+		// {// new data from usb
+			// writeCANFrameToSocket(s,can_buff_usb);
+		// }
 	}
 
 	cfuc_close_device();
 	close(s);
 usb_not_opened:
-	
+
 	return 0;
 }
