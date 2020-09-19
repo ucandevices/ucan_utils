@@ -19,77 +19,85 @@
 
 #include "cfuc_driver.h"
 #include "rust_additional.h"
+#include "ucan_fd_protocol_stm32g431.h"
 
-int readCANFrameFromSocket(int socket,uint8_t* buff, struct timeval * tv)
+int readCANFrameFromSocket(int socket, uint8_t *buff, struct timeval *tv)
 {
 	int nbytes;
-    nbytes = read(socket, buff, CANFD_MTU);
-    if (nbytes == CANFD_MTU) {
-            printf("got CAN FD frame with length %d\n", ((struct canfd_frame*)buff)->len);
-    } else if (nbytes == CAN_MTU) {
-            printf("got legacy CAN frame with length %d\n", ((struct can_frame*)buff)->can_dlc);
-    } else {
-            // fprintf(stderr, "read: invalid CAN(FD) frame\n");
-            return -1;
-    }
-
-    if (ioctl(socket, 0x8906, &tv) < 0)
-    {
+	nbytes = read(socket, buff, CANFD_MTU);
+	if (nbytes == CANFD_MTU)
+	{
+		printf("got CAN FD frame with length %d\n", ((struct canfd_frame *)buff)->len);
+	}
+	else if (nbytes == CAN_MTU)
+	{
+		printf("got legacy CAN frame with length %d\n", ((struct can_frame *)buff)->can_dlc);
+	}
+	else
+	{
+		// fprintf(stderr, "read: invalid CAN(FD) frame\n");
 		return -1;
-        perror("SIOCGSTAMP");
+	}
+
+	if (ioctl(socket, 0x8906, &tv) < 0)
+	{
+		return -1;
+		perror("SIOCGSTAMP");
 	}
 	return nbytes;
 }
 
 int writeCANFrameToSocket(int socket, uint8_t *frame)
 {
-		// /* send frame */
-	if (write(socket, frame, CANFD_MTU) != CANFD_MTU) {
+	// /* send frame */
+	if (write(socket, frame, CANFD_MTU) != CANFD_MTU)
+	{
 		perror("write");
 		return 1;
 	}
 	return 0;
 }
 
-
 int main(int argc, char **argv)
 {
 	static uint8_t can_buff[MAX_CFUC_USB_FRAME_SIZE];
 	static uint8_t can_buff_usb[MAX_CFUC_USB_FRAME_SIZE];
-		
-	int s; /* can raw socket */ 
+
+	int s; /* can raw socket */
 	struct sockaddr_can addr;
 	int running = 1;
 	struct can_filter fi;
 	int enable_canfd = 1;
 
-    struct timeval tv;
+	struct timeval tv;
 
-
+	// putenv("LIBUSB_DEBUG=4");
 	/* check command line options */
-	if (argc != 3) {
+	if (argc != 3)
+	{
 		fprintf(stderr, "%s: adapter for applications using"
-			" the uCAN USB protocol.\n", basename(argv[0]));
+						" the uCAN USB protocol.\n",
+				basename(argv[0]));
 		fprintf(stderr, "Usage: %s <usb id> <can interface>\n", basename(argv[0]));
 		fprintf(stderr, "\nExamples:\n");
 		fprintf(stderr, "%s can0 usb01  - creates can0 for tinterface for usb device\n\n",
-			basename(argv[0]));
+				basename(argv[0]));
 		fprintf(stderr, "\n");
 		return 1;
 	}
 
 	/* open usblib uccb */
-	if (cfuc_open_device() < 0) {
+	if (cfuc_open_device())
+	{
 		printf("error openig USB device \n");
 		goto usb_not_opened;
 	};
 	printf("USB device opened\n");
-	
-	
 
 	/* open socket */
 	s = socket(PF_CAN, SOCK_RAW, CAN_RAW);
-	if (s < 0) {
+	if (s < 0)
+	{
 		perror("socket");
 		return 1;
 	}
@@ -99,37 +107,40 @@ int main(int argc, char **argv)
 
 	/* interface is ok - try to switch the socket into CAN FD mode */
 	if (setsockopt(s, SOL_CAN_RAW, CAN_RAW_FD_FRAMES,
-				&enable_canfd, sizeof(enable_canfd))){
+				   &enable_canfd, sizeof(enable_canfd)))
+	{
 		printf("error when enabling CAN FD support\n");
 		return 1;
 	}
 
 	fcntl(s, F_SETFL, O_NONBLOCK);
 
-	if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+	if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) < 0)
+	{
 		perror("bind");
 		return 1;
 	}
 
 	/* open filter by default */
-	fi.can_id   = 0;
+	fi.can_id = 0;
 	fi.can_mask = 0;
 
+	while (running)
+	{
 
-	while (running) {
-
-		uint8_t ftype = readCANFrameFromSocket(s,can_buff,&tv);
+		uint8_t ftype = readCANFrameFromSocket(s, can_buff, &tv);
 		if (ftype == CANFD_MTU)
 		{
-			cfuc_canfd_tx((struct canfd_frame*)can_buff,&tv);
-		} else if (ftype == CAN_MTU)
-		{
-			cfuc_can_tx((struct can_frame*)can_buff,&tv);
+			cfuc_canfd_tx((struct canfd_frame *)can_buff, &tv);
 		}
-		
+		else if (ftype == CAN_MTU)
+		{
+			cfuc_can_tx((struct can_frame *)can_buff, &tv);
+		}
+
 		// if (cfuc_get_frame_from_usb(can_buff_usb) == 0)
 		// {// new data from usb
-			// writeCANFrameToSocket(s,can_buff_usb);
+		// writeCANFrameToSocket(s,can_buff_usb);
 		// }
 	}
 

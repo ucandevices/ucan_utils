@@ -12,6 +12,7 @@
 
 #define EP_OUT (1 | LIBUSB_ENDPOINT_OUT)
 #define EP_IN (1 | LIBUSB_ENDPOINT_IN)
+#define RETRY_MAX 5
 
 static struct libusb_device_handle *devh = NULL;
 static int cfuc_send_to_usb(uint8_t *usb_buff, int tranfered);
@@ -54,6 +55,9 @@ int cfuc_open_device(void)
         printf("error open\n");
         goto ucan_initframe_err;
     }
+
+    libusb_set_auto_detach_kernel_driver(devh,1);
+
     if (libusb_claim_interface(devh, 1) < 0)
     {
         printf("error claim if\n");
@@ -67,11 +71,11 @@ int cfuc_open_device(void)
         goto ucan_initframe_err;
     }
     printf("INIT ACK\n");
-    if (cfuc_get_ack((unsigned char *)&ucan_ackframe))
-    {
-        printf("error tx init\n");
-        goto ucan_initframe_err;
-    }
+    // if (cfuc_get_ack((unsigned char *)&ucan_ackframe))
+    // {
+    //     printf("error ack init\n");
+    //     goto ucan_initframe_err;
+    // }
     return 0;
 ucan_initframe_err:
     libusb_close(devh);
@@ -119,6 +123,7 @@ static int cfuc_send_to_usb(uint8_t *usb_buff, int frame_size)
     int tranfered = 0;
     const int MAX_CH_SIZE = 64;
     int tranfered_total = 0;
+    int r, i;
 
     /* one bulk tranfer in USB 2.0 can have 64 bytes maximum */
     while (tranfered_total < frame_size)
@@ -134,7 +139,7 @@ static int cfuc_send_to_usb(uint8_t *usb_buff, int frame_size)
         {
             chunk_size = left_to_tranfer;
         }
-        printf("chunk_size %i", chunk_size);
+        printf("chunk_size 0x%02X\n", chunk_size);
         // getchar();
 
         printf("USB %02X< ", chunk_size);
@@ -144,7 +149,23 @@ static int cfuc_send_to_usb(uint8_t *usb_buff, int frame_size)
         printf("\n");
 
         // tranfered = chunk_size;
-        libusb_bulk_transfer(devh, EP_OUT, &(usb_buff[tranfered_total]), chunk_size, &tranfered, 100);
+
+        do
+        {
+            // The transfer length must always be exactly 31 bytes.
+            r = libusb_bulk_transfer(devh, EP_OUT, &(usb_buff[tranfered_total]), chunk_size, &tranfered, 100);
+            if (r == LIBUSB_ERROR_PIPE)
+            {
+                libusb_clear_halt(devh, EP_OUT);
+            }
+            i++;
+        } while ((r == LIBUSB_ERROR_PIPE) && (i < RETRY_MAX));
+        if (r != LIBUSB_SUCCESS)
+        {
+            printf("libusb_bulk_transfer failed: %s\n", libusb_error_name(r));
+            return -1;
+        }
+
         tranfered_total += chunk_size;
         if (tranfered != chunk_size)
         {
@@ -203,6 +224,7 @@ int cfuc_get_frame_from_usb(uint8_t *buff_frame)
             return 0;
         }
     }
+    return -1;
 }
 
 int cfuc_get_blocking_from_usb(uint8_t *usb_buff, int len)
@@ -210,6 +232,7 @@ int cfuc_get_blocking_from_usb(uint8_t *usb_buff, int len)
     int bulkres;
     int tranfered;
 
+    printf("GET USB %i \n", len);
     bulkres = libusb_bulk_transfer(devh, EP_IN, usb_buff, len, &tranfered, 100);
     if (bulkres == 0)
     {
@@ -220,7 +243,13 @@ int cfuc_get_blocking_from_usb(uint8_t *usb_buff, int len)
             for (loop = 0; loop < tranfered; loop++)
                 printf("%02X ", usb_buff[loop]);
             printf("\n");
+            return 0;
         }
     }
+    else
+    {
+        printf("libusb_bulk_transfer failed: %s\n", libusb_error_name(bulkres));
+    }
+
     return -1;
 }

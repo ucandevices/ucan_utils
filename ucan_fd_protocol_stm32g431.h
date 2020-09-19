@@ -35,13 +35,15 @@ typedef enum {
 typedef enum {
 	UCAN_FD_COMMAND_OK, /*!< command was executed successfully USB->CAN*/
 	UCAN_FD_COMMAND_ERROR, /*!< command was not executed see error code*/
-	UCAN_FD_COMMAND_WRONG_PARAM /*!< wrong param */
+	UCAN_FD_COMMAND_WRONG_PARAM, /*!< wrong param */
+	CS_ENUM_SIZE_GUARD = 0xFFFFFFFF
 } UCAN_FRAME_CMD_STATUS;
 
 typedef enum {
 	UCAN_CAN_FD,
 	UCAN_CAN_HS,
-	UCAN_LIN
+	UCAN_LIN,
+	DT_ENUM_SIZE_GUARD = 0xFFFFFFFF
 } UCAN_DEV_TYPE;
 
 
