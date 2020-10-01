@@ -125,6 +125,14 @@ int main(int argc, char **argv)
 	fi.can_id = 0;
 	fi.can_mask = 0;
 
+	// while (1)
+	// {
+	// 	static UCAN_TxFrameDef cfuc_tx;
+	// 	cfuc_tx.frame_type = ENUM_SIZE_GUARD;
+	// 	extern int cfuc_send_to_usb(uint8_t *usb_buff, int tranfered);
+	// 	cfuc_send_to_usb((uint8_t *)(&cfuc_tx),0x43);
+	// 	usleep(10000);
+	// }
 	while (running)
 	{
 
