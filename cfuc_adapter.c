@@ -20,6 +20,7 @@
 #include "cfuc_driver.h"
 #include "rust_additional.h"
 #include "ucan_fd_protocol_stm32g431.h"
+#include "log.h"
 
 int readCANFrameFromSocket(int socket, uint8_t *buff, struct timeval *tv)
 {
@@ -27,15 +28,15 @@ int readCANFrameFromSocket(int socket, uint8_t *buff, struct timeval *tv)
 	nbytes = read(socket, buff, CANFD_MTU);
 	if (nbytes == CANFD_MTU)
 	{
-		printf("got CAN FD frame with length %d\n", ((struct canfd_frame *)buff)->len);
+		log_debug("SCAN> FD CAN len %d", ((struct canfd_frame *)buff)->len);
 	}
 	else if (nbytes == CAN_MTU)
 	{
-		printf("got legacy CAN frame with length %d\n", ((struct can_frame *)buff)->can_dlc);
+		log_debug("SCAN> CAN len %d", ((struct can_frame *)buff)->can_dlc);
 	}
 	else
 	{
-		// fprintf(stderr, "read: invalid CAN(FD) frame\n");
+		// fprintf(stderr, "read: invalid CAN(FD) frame");
 		return -1;
 	}
 
@@ -50,7 +51,8 @@ int readCANFrameFromSocket(int socket, uint8_t *buff, struct timeval *tv)
 int writeCANFrameToSocket(int socket, uint8_t *frame)
 {
 	// /* send frame */
-	if (write(socket, frame, CANFD_MTU) != CANFD_MTU)
+	log_info("SCAN< %d",frame[0]);
+	if (write(socket, frame, CAN_MTU) != CAN_MTU)
 	{
 		perror("write");
 		return 1;
@@ -89,10 +91,10 @@ int main(int argc, char **argv)
 	/* open usblib uccb */
 	if (cfuc_open_device())
 	{
-		printf("error openig USB device \n");
+		log_error("error openig USB device");
 		goto usb_not_opened;
 	};
-	printf("USB device opened\n");
+	log_debug("USB device opened");
 
 	/* open socket */
 	s = socket(PF_CAN, SOCK_RAW, CAN_RAW);
@@ -109,7 +111,7 @@ int main(int argc, char **argv)
 	if (setsockopt(s, SOL_CAN_RAW, CAN_RAW_FD_FRAMES,
 				   &enable_canfd, sizeof(enable_canfd)))
 	{
-		printf("error when enabling CAN FD support\n");
+		log_error("error when enabling CAN FD support");
 		return 1;
 	}
 
@@ -125,14 +127,6 @@ int main(int argc, char **argv)
 	fi.can_id = 0;
 	fi.can_mask = 0;
 
-	// while (1)
-	// {
-	// 	static UCAN_TxFrameDef cfuc_tx;
-	// 	cfuc_tx.frame_type = ENUM_SIZE_GUARD;
-	// 	extern int cfuc_send_to_usb(uint8_t *usb_buff, int tranfered);
-	// 	cfuc_send_to_usb((uint8_t *)(&cfuc_tx),0x43);
-	// 	usleep(10000);
-	// }
 	while (running)
 	{
 
@@ -146,10 +140,10 @@ int main(int argc, char **argv)
 			cfuc_can_tx((struct can_frame *)can_buff, &tv);
 		}
 
-		// if (cfuc_get_frame_from_usb(can_buff_usb) == 0)
-		// {// new data from usb
-		// writeCANFrameToSocket(s,can_buff_usb);
-		// }
+		if (cfuc_get_frame_from_usb(can_buff_usb) == 0)
+		{// new data from usb
+			writeCANFrameToSocket(s,can_buff_usb);
+		}
 	}
 
 	cfuc_close_device();

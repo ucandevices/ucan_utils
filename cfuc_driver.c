@@ -9,6 +9,7 @@
 #include "./stm32g4xx_hal_fdcan.h"
 #include "./ucan_fd_protocol_stm32g431.h"
 #include "./cfuc_driver.h"
+#include "./log.h"
 
 #define EP_OUT (1 | LIBUSB_ENDPOINT_OUT)
 #define EP_IN (1 | LIBUSB_ENDPOINT_IN)
@@ -18,6 +19,7 @@ static struct libusb_device_handle *devh = NULL;
 int cfuc_send_to_usb(uint8_t *usb_buff, int tranfered);
 int cfuc_get_ack(uint8_t *buff_frame);
 int cfuc_get_blocking_from_usb(uint8_t *usb_buff, int len);
+int usb_counter;
 
 // init struct
 UCAN_InitFrameDef ucan_initframe = {
@@ -47,14 +49,14 @@ int cfuc_open_device(void)
     {
         if (libusb_init(NULL) < 0)
         {
-            printf("failed to initialise libusb\n");
+            log_error("failed to initialise libusb");
             return -1;
         }
         devh = libusb_open_device_with_vid_pid(NULL, 0x1209, 0x0775);
 
         if (devh == NULL)
         {
-            printf("error open\n");
+            log_error("error open");
             goto ucan_initframe_err2;
         }
 
@@ -62,29 +64,31 @@ int cfuc_open_device(void)
 
         if (libusb_claim_interface(devh, 1) < 0)
         {
-            printf("error claim if\n");
+            log_error("error claim if");
             goto ucan_initframe_err;
         }
 
-        printf("INIT CAN\n");
+        log_debug("INIT CAN");
         if (cfuc_send_to_usb((unsigned char *)&ucan_initframe, sizeof(ucan_initframe)))
         {
-            printf("error tx init\n");
-            goto ucan_initframe_err;
+            log_error("error tx init");
+         
+        } else 
+        {
+            log_debug("INIT ACK");
+            if (cfuc_get_ack((unsigned char *)&ucan_ackframe))
+            {
+                log_error("error ack init");
+                goto ucan_initframe_err;
+            }
+            usb_counter = 0;            
         }
-        printf("INIT ACK\n");
-        // if (cfuc_get_ack((unsigned char *)&ucan_ackframe))
-        // {
-        //     printf("error ack init\n");
-        //     goto ucan_initframe_err;
-        // }
-
         return 0;
-        ucan_initframe_err:
+ucan_initframe_err:
         libusb_close(devh);
-        ucan_initframe_err2:
+ucan_initframe_err2:
         libusb_exit(NULL);
-        usleep(100000);
+        usleep(10000);
     }
     
     
@@ -133,11 +137,13 @@ int cfuc_send_to_usb(uint8_t *usb_buff, int frame_size)
     int tranfered_total = 0;
     int r, i;
 
-    printf("USB %02X< ", frame_size);
+    log_debug("USB %02X< ", frame_size);
     int loop;
-    for (loop = 0; loop < frame_size; loop++)
-        printf("%02X ", usb_buff[tranfered_total + loop]);
-    printf("\n");
+    // for (loop = 0; loop < frame_size; loop++)
+    //     log_debug("%02X ", usb_buff[tranfered_total + loop]);
+    // log_debug("\n");
+
+    usb_counter ++;
     do
     {
         // The transfer length must always be exactly 31 bytes.
@@ -150,7 +156,8 @@ int cfuc_send_to_usb(uint8_t *usb_buff, int frame_size)
     } while ((r == LIBUSB_ERROR_PIPE) && (i < RETRY_MAX));
     if (r != LIBUSB_SUCCESS)
     {
-        printf("libusb_bulk_transfer failed: %s\n", libusb_error_name(r));
+        log_debug("usb_counter %02X",usb_counter);
+        log_debug("libusb_bulk_transfer failed: %s", libusb_error_name(r));
         cfuc_close_device();
         cfuc_open_device();
         return -1;
@@ -211,11 +218,13 @@ int cfuc_get_ack(uint8_t *buff_frame)
 {
     if (cfuc_get_blocking_from_usb(buff_frame, sizeof(UCAN_AckFrameDef)))
     {
+        log_debug("rx bulk failed");
         return -1;
     }
     UCAN_AckFrameDef *ack = (UCAN_AckFrameDef *)buff_frame;
     if (ack->frame_type != UCAN_FD_ACK)
     {
+        log_debug("frame_type is %02X",ack->frame_type);
         return -1;
     }
     return 0;
@@ -235,23 +244,21 @@ int cfuc_get_frame_from_usb(uint8_t *buff_frame)
         if (rx->can_rx_header.FDFormat == FDCAN_CLASSIC_CAN)
         {
             struct can_frame *can = (struct can_frame *)buff_frame;
-            uint8_t can_len = rx->can_rx_header.DataLength;
-            printf("CAN rx\n");
+            uint8_t can_len = rx->can_rx_header.DataLength;            
             can->can_id = rx->can_rx_header.Identifier;
             can->can_dlc = can_len;
+            log_debug("CAN> ID:%d L:%d",can->can_id,can->can_dlc);
             memcpy((void *)can->data, (void *)rx->can_data, can_len);
-
             return 0;
         }
         else // FDCAN
         {
             struct canfd_frame *fdcan = (struct canfd_frame *)buff_frame;
             uint8_t can_len = rx->can_rx_header.DataLength >> 16;
-            printf("CANFD rx\n");
             fdcan->can_id = rx->can_rx_header.Identifier;
             fdcan->len = can_len;
+            log_debug("CANFD> ID:%d L:%d",fdcan->can_id,fdcan->len);
             memcpy((void *)fdcan->data, (void *)rx->can_data, can_len);
-
             return 0;
         }
     }
@@ -263,23 +270,23 @@ int cfuc_get_blocking_from_usb(uint8_t *usb_buff, int len)
     int bulkres;
     int tranfered;
 
-    printf("GET USB %i \n", len);
+    // log_debug("GET USB %i ", len);
     bulkres = libusb_bulk_transfer(devh, EP_IN, usb_buff, len, &tranfered, 100);
     if (bulkres == 0)
     {
         if (tranfered > 0)
         {
-            printf("USB %02X> ", tranfered);
+            log_debug("USB %02X> ", tranfered);
             int loop;
-            for (loop = 0; loop < tranfered; loop++)
-                printf("%02X ", usb_buff[loop]);
-            printf("\n");
+            // for (loop = 0; loop < tranfered; loop++)
+            //     log_debug("%02X ", usb_buff[loop]);
+            // log_debug("\n");
             return 0;
         }
     }
     else
     {
-        printf("libusb_bulk_transfer failed: %s\n", libusb_error_name(bulkres));
+        // log_debug("libusb_bulk_transfer failed: %s", libusb_error_name(bulkres));
     }
 
     return -1;
