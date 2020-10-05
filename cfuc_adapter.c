@@ -5,6 +5,7 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <net/if.h>
 #include <sys/ioctl.h>
@@ -58,6 +59,13 @@ int writeCANFrameToSocket(int socket, uint8_t *frame)
 		return 1;
 	}
 	return 0;
+}
+
+
+static inline time_t gettime()
+{
+	return clock();
+	
 }
 
 int main(int argc, char **argv)
@@ -127,23 +135,35 @@ int main(int argc, char **argv)
 	fi.can_id = 0;
 	fi.can_mask = 0;
 
+	time_t timestamp = gettime();
 	while (running)
 	{
 
 		uint8_t ftype = readCANFrameFromSocket(s, can_buff, &tv);
 		if (ftype == CANFD_MTU)
 		{
+			timestamp = gettime();
 			cfuc_canfd_tx((struct canfd_frame *)can_buff, &tv);
 		}
 		else if (ftype == CAN_MTU)
 		{
+			timestamp = gettime();
 			cfuc_can_tx((struct can_frame *)can_buff, &tv);
 		}
 
 		if (cfuc_get_frame_from_usb(can_buff_usb) == 0)
 		{// new data from usb
+			timestamp = clock();
 			writeCANFrameToSocket(s,can_buff_usb);
 		}
+		// log_debug("tt %ld,     %ld",gettime(), timestamp);
+		if (((gettime() - timestamp)) > (9000))
+		{
+			timestamp = gettime();			
+			// no frame was recived/send to USB for long time check if usb connection pressent
+			cfuc_get_status();
+		}
+		usleep(1000);
 	}
 
 	cfuc_close_device();
