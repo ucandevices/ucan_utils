@@ -26,12 +26,13 @@ UCAN_InitFrameDef ucan_initframe = {
     UCAN_FD_INIT,
     {.ClockDivider = 0,
      .FrameFormat = FDCAN_FRAME_CLASSIC,
-     .Mode = FDCAN_MODE_INTERNAL_LOOPBACK,
+     .Mode = FDCAN_MODE_NORMAL,
      .AutoRetransmission = DISABLE,
      .TransmitPause = DISABLE,
+     .ProtocolException = DISABLE,
      .NominalPrescaler = 1,
      .NominalSyncJumpWidth = 1,
-     .NominalTimeSeg1 = 2,
+     .NominalTimeSeg1 = 13,
      .NominalTimeSeg2 = 2,
      .DataPrescaler = 1,
      .DataSyncJumpWidth = 1,
@@ -256,7 +257,10 @@ int cfuc_get_frame_from_usb(uint8_t *buff_frame)
         if (rx->can_rx_header.FDFormat == FDCAN_CLASSIC_CAN)
         {
             struct can_frame *can = (struct can_frame *)buff_frame;
-            uint8_t can_len = rx->can_rx_header.DataLength;
+
+            log_debug("!!CAN> L:%04X", rx->can_rx_header.DataLength);
+            
+            uint32_t can_len = rx->can_rx_header.DataLength >> 16;
             can->can_id = rx->can_rx_header.Identifier;
             can->can_dlc = can_len;
             log_debug("CAN> ID:%04X L:%02X", can->can_id, can->can_dlc);

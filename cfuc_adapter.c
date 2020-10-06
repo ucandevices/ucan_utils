@@ -156,7 +156,6 @@ int main(int argc, char **argv)
 			timestamp = clock();
 			writeCANFrameToSocket(s,can_buff_usb);
 		}
-		// log_debug("tt %ld,     %ld",gettime(), timestamp);
 		if (((gettime() - timestamp)) > (9000))
 		{
 			timestamp = gettime();			
