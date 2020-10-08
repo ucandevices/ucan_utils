@@ -123,7 +123,7 @@ int cfuc_can_tx(struct can_frame *frame, struct timeval *tv)
 {
     tv = tv;
     cfuc_tx.frame_type = UCAN_FD_TX;
-    cfuc_tx.can_tx_header.DataLength = (uint32_t)frame->can_dlc;
+    cfuc_tx.can_tx_header.DataLength = (uint32_t)frame->can_dlc >> 16;
     cfuc_tx.can_tx_header.FDFormat = FDCAN_CLASSIC_CAN;
     cfuc_tx.can_tx_header.Identifier = frame->can_id;
     memcpy((void *)cfuc_tx.can_data, (void *)frame->data, cfuc_tx.can_tx_header.DataLength);
