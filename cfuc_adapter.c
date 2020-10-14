@@ -53,7 +53,7 @@ int writeCANFrameToSocket(int socket, uint8_t *frame)
 {
 	// /* send frame */
 	log_info("SCAN< %d",frame[0]);
-	if (write(socket, frame, CAN_MTU) != CAN_MTU)
+	if (write(socket, frame, CANFD_MTU) != CANFD_MTU)
 	{
 		perror("write");
 		return 1;

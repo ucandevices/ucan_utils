@@ -25,8 +25,8 @@ int usb_counter;
 UCAN_InitFrameDef ucan_initframe = {
     UCAN_FD_INIT,
     {.ClockDivider = 0,
-     .FrameFormat = FDCAN_FRAME_CLASSIC,
-     .Mode = FDCAN_MODE_NORMAL,
+     .FrameFormat = FDCAN_FRAME_FD_NO_BRS,
+     .Mode = FDCAN_MODE_INTERNAL_LOOPBACK,
      .AutoRetransmission = DISABLE,
      .TransmitPause = DISABLE,
      .ProtocolException = DISABLE,
@@ -52,7 +52,7 @@ int cfuc_get_status(void)
     if (cfuc_get_ack((unsigned char *)&ucan_ackframe))
     {
         log_error("error ack init");
-        return - 1;
+        return -1;
     }
     return 0;
 }
@@ -123,10 +123,11 @@ int cfuc_can_tx(struct can_frame *frame, struct timeval *tv)
 {
     tv = tv;
     cfuc_tx.frame_type = UCAN_FD_TX;
-    cfuc_tx.can_tx_header.DataLength = (uint32_t)frame->can_dlc >> 16;
+    cfuc_tx.can_tx_header.DataLength = ((uint32_t)(frame->can_dlc)) << 16;
     cfuc_tx.can_tx_header.FDFormat = FDCAN_CLASSIC_CAN;
     cfuc_tx.can_tx_header.Identifier = frame->can_id;
-    memcpy((void *)cfuc_tx.can_data, (void *)frame->data, cfuc_tx.can_tx_header.DataLength);
+    // cfuc_tx.can_tx_header.TxFrameType = FDCAN_REMOTE_FRAME
+    memcpy((void *)cfuc_tx.can_data, (void *)frame->data, frame->can_dlc);
 
     return cfuc_send_to_usb((uint8_t *)&cfuc_tx, sizeof(cfuc_tx));
 }
@@ -135,10 +136,51 @@ int cfuc_canfd_tx(struct canfd_frame *frame, struct timeval *tv)
 {
     tv = tv;
     cfuc_tx.frame_type = UCAN_FD_TX;
-    cfuc_tx.can_tx_header.DataLength = (uint32_t)frame->len << 16;
+
+    if (frame->len <= 8)
+        cfuc_tx.can_tx_header.DataLength = (uint32_t)frame->len << 16;
+    else
+    {
+        switch (frame->len)
+        {
+        case 12:
+            cfuc_tx.can_tx_header.DataLength = FDCAN_DLC_BYTES_12;
+            break;
+
+        case 16:
+            cfuc_tx.can_tx_header.DataLength = FDCAN_DLC_BYTES_16;
+            break;
+
+        case 20:
+            cfuc_tx.can_tx_header.DataLength = FDCAN_DLC_BYTES_20;
+            break;
+
+        case 24:
+            cfuc_tx.can_tx_header.DataLength = FDCAN_DLC_BYTES_24;
+            break;
+
+        case 32:
+            cfuc_tx.can_tx_header.DataLength = FDCAN_DLC_BYTES_32;
+            break;
+
+        case 48:
+            cfuc_tx.can_tx_header.DataLength = FDCAN_DLC_BYTES_48;
+            break;
+
+        case 64:
+            cfuc_tx.can_tx_header.DataLength = FDCAN_DLC_BYTES_64;
+            break;
+        default:
+            log_debug("ERR! CANFD< ID:%04X L:%02X ERR!", frame->can_id, frame->len);
+            return -1;
+        }
+    }
+
     cfuc_tx.can_tx_header.FDFormat = FDCAN_FD_CAN;
     cfuc_tx.can_tx_header.Identifier = frame->can_id;
-    memcpy((void *)cfuc_tx.can_data, (void *)frame->data, cfuc_tx.can_tx_header.DataLength);
+    memcpy((void *)cfuc_tx.can_data, (void *)frame->data, frame->len);
+
+    log_debug("CANFD< ID:%04X L:%02X", frame->can_id, frame->len);
 
     return cfuc_send_to_usb((uint8_t *)&cfuc_tx, sizeof(cfuc_tx));
 }
@@ -150,7 +192,7 @@ int cfuc_send_to_usb(uint8_t *usb_buff, int frame_size)
     int tranfered_total = 0;
     int r, i;
 
-    log_debug("USB %02X< ", frame_size);
+    // log_debug("USB %02X< ", frame_size);
     int loop;
     // for (loop = 0; loop < frame_size; loop++)
     //     log_debug("%02X ", usb_buff[tranfered_total + loop]);
@@ -175,56 +217,6 @@ int cfuc_send_to_usb(uint8_t *usb_buff, int frame_size)
         cfuc_open_device();
         return -1;
     }
-
-    // /* one bulk tranfer in USB 2.0 can have 64 bytes maximum */
-    // while (tranfered_total < frame_size)
-    // {
-
-    //     int left_to_tranfer = frame_size - tranfered_total;
-    //     int chunk_size = frame_size;
-    //     if (left_to_tranfer >= MAX_CH_SIZE)
-    //     {
-    //         chunk_size = MAX_CH_SIZE;
-    //     }
-    //     else
-    //     {
-    //         chunk_size = left_to_tranfer;
-    //     }
-    //     printf("chunk_size 0x%02X\n", chunk_size);
-    //     // getchar();
-
-    //     printf("USB %02X< ", chunk_size);
-    //     int loop;
-    //     for (loop = 0; loop < chunk_size; loop++)
-    //         printf("%02X ", usb_buff[tranfered_total + loop]);
-    //     printf("\n");
-
-    //     // tranfered = chunk_size;
-
-    //     do
-    //     {
-    //         // The transfer length must always be exactly 31 bytes.
-    //         r = libusb_bulk_transfer(devh, EP_OUT, &(usb_buff[tranfered_total]), chunk_size, &tranfered, 100);
-    //         if (r == LIBUSB_ERROR_PIPE)
-    //         {
-    //             libusb_clear_halt(devh, EP_OUT);
-    //         }
-    //         i++;
-    //     } while ((r == LIBUSB_ERROR_PIPE) && (i < RETRY_MAX));
-    //     if (r != LIBUSB_SUCCESS)
-    //     {
-    //         printf("libusb_bulk_transfer failed: %s\n", libusb_error_name(r));
-    //         return -1;
-    //     }
-
-    //     tranfered_total += chunk_size;
-    //     if (tranfered != chunk_size)
-    //     {
-    //         printf("USB ERR: Send %d expected %d\n", tranfered, chunk_size);
-    //         return -1;
-    //     }
-    // }
-    // return 0;
 }
 
 int cfuc_get_ack(uint8_t *buff_frame)
@@ -258,19 +250,52 @@ int cfuc_get_frame_from_usb(uint8_t *buff_frame)
         {
             struct can_frame *can = (struct can_frame *)buff_frame;
 
-            log_debug("!!CAN> L:%04X", rx->can_rx_header.DataLength);
-            
             uint32_t can_len = rx->can_rx_header.DataLength >> 16;
             can->can_id = rx->can_rx_header.Identifier;
             can->can_dlc = can_len;
-            log_debug("CAN> ID:%04X L:%02X", can->can_id, can->can_dlc);
             memcpy((void *)can->data, (void *)rx->can_data, can_len);
+            log_debug("CAN> ID:%04X L:%02X D:%02X %02X %02X %02X %02X", can->can_id, can->can_dlc, can->data[0], can->data[1], can->data[2], can->data[3], can->data[4]);
             return 0;
         }
         else // FDCAN
         {
             struct canfd_frame *fdcan = (struct canfd_frame *)buff_frame;
             uint8_t can_len = rx->can_rx_header.DataLength >> 16;
+
+            switch (rx->can_rx_header.DataLength)
+            {
+            case FDCAN_DLC_BYTES_12:
+                can_len = 12;
+                break;
+
+            case FDCAN_DLC_BYTES_16:
+                can_len = 16;
+                break;
+
+            case FDCAN_DLC_BYTES_20:
+                can_len = 20;
+                break;
+
+            case FDCAN_DLC_BYTES_24:
+                can_len = 24;
+                break;
+
+            case FDCAN_DLC_BYTES_32:
+                can_len = 32;
+                break;
+
+            case FDCAN_DLC_BYTES_48:
+                can_len = 48;
+                break;
+
+            case FDCAN_DLC_BYTES_64:
+                can_len = 64;
+                break;
+            // default:
+                // log_debug("ERR! CANFD> LEN ERR!");
+                // return -1;
+            }
+
             fdcan->can_id = rx->can_rx_header.Identifier;
             fdcan->len = can_len;
             log_debug("CANFD> ID:%04X L:%02X", fdcan->can_id, fdcan->len);
@@ -292,7 +317,7 @@ int cfuc_get_blocking_from_usb(uint8_t *usb_buff, int len)
     {
         if (tranfered > 0)
         {
-            log_debug("USB %02X> ", tranfered);
+            // log_debug("USB %02X> ", tranfered);
             int loop;
             // for (loop = 0; loop < tranfered; loop++)
             //     log_debug("%02X ", usb_buff[loop]);
