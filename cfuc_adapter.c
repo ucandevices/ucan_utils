@@ -95,6 +95,7 @@ int main(int argc, char **argv)
 	if (cfuc_args->gotoboot)
 	{
 		log_info("GOTOBOOT");
+		cfuc_canfd_goto_boot();
 	}
 
 	if (cfuc_args->can_interface_name == NULL)
