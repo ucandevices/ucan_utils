@@ -18,6 +18,7 @@
 #include <linux/can/raw.h>
 #include <linux/sockios.h>
 
+#include "ucan_cfg.h"
 #include "cfuc_driver.h"
 #include "rust_additional.h"
 #include "ucan_fd_protocol_stm32g431.h"
@@ -83,6 +84,9 @@ int main(int argc, char **argv)
 
 	// putenv("LIBUSB_DEBUG=4");
 	/* check command line options */
+
+	configuration* cfg = load_cfg("cfuc_adapter.ini");
+
 	if (argc != 3)
 	{
 		fprintf(stderr, "%s: adapter for applications using"
@@ -97,7 +101,7 @@ int main(int argc, char **argv)
 	}
 
 	/* open usblib uccb */
-	if (cfuc_open_device())
+	if (cfuc_open_device(&(cfg->fdcanInitType)));
 	{
 		log_error("error openig USB device");
 		goto usb_not_opened;

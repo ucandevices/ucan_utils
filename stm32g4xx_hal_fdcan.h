@@ -459,6 +459,10 @@ typedef struct
 #define FDCAN_CCCR_FDOE_Msk       (0x1UL << FDCAN_CCCR_FDOE_Pos)               /*!< 0x00000100 */
 #define FDCAN_CCCR_FDOE           FDCAN_CCCR_FDOE_Msk                          /*!<FD Operation Enable                      */
 
+#define FDCAN_CCCR_BRSE_Pos       (9U)
+#define FDCAN_CCCR_BRSE_Msk       (0x1UL << FDCAN_CCCR_BRSE_Pos)               /*!< 0x00000200 */
+#define FDCAN_CCCR_BRSE           FDCAN_CCCR_BRSE_Msk                          /*!<FDCAN Bit Rate Switching                 */
+
 
 #define FDCAN_FRAME_CLASSIC   ((uint32_t)0x00000000U)                         /*!< Classic mode                      */
 #define FDCAN_FRAME_FD_NO_BRS ((uint32_t)FDCAN_CCCR_FDOE)                     /*!< FD mode without BitRate Switching */

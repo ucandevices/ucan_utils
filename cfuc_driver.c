@@ -10,6 +10,7 @@
 #include "./ucan_fd_protocol_stm32g431.h"
 #include "./cfuc_driver.h"
 #include "./log.h"
+#include "./ucan_cfg.h"
 
 #define EP_OUT (1 | LIBUSB_ENDPOINT_OUT)
 #define EP_IN (1 | LIBUSB_ENDPOINT_IN)
@@ -24,23 +25,8 @@ int usb_counter;
 // init struct
 UCAN_InitFrameDef ucan_initframe = {
     UCAN_FD_INIT,
-    {.ClockDivider = 0,
-     .FrameFormat = FDCAN_FRAME_FD_NO_BRS,
-     .Mode = FDCAN_MODE_INTERNAL_LOOPBACK,
-     .AutoRetransmission = DISABLE,
-     .TransmitPause = DISABLE,
-     .ProtocolException = DISABLE,
-     .NominalPrescaler = 1,
-     .NominalSyncJumpWidth = 1,
-     .NominalTimeSeg1 = 13,
-     .NominalTimeSeg2 = 2,
-     .DataPrescaler = 1,
-     .DataSyncJumpWidth = 1,
-     .DataTimeSeg1 = 1,
-     .DataTimeSeg2 = 1,
-     .StdFiltersNbr = 0,
-     .ExtFiltersNbr = 0,
-     .TxFifoQueueMode = FDCAN_TX_FIFO_OPERATION}};
+    {}
+};
 
 UCAN_AckFrameDef ucan_ackframe;
 
@@ -57,8 +43,10 @@ int cfuc_get_status(void)
     return 0;
 }
 
-int cfuc_open_device(void)
+int cfuc_open_device(FDCAN_InitTypeDef *init_data)
 {
+    memcpy((void*)&(ucan_initframe.can_init),init_data,sizeof(FDCAN_InitTypeDef));
+    
     while (1)
     {
         if (libusb_init(NULL) < 0)
@@ -185,6 +173,8 @@ int cfuc_canfd_tx(struct canfd_frame *frame, struct timeval *tv)
     return cfuc_send_to_usb((uint8_t *)&cfuc_tx, sizeof(cfuc_tx));
 }
 
+
+
 int cfuc_send_to_usb(uint8_t *usb_buff, int frame_size)
 {
     int tranfered = 0;
@@ -214,7 +204,7 @@ int cfuc_send_to_usb(uint8_t *usb_buff, int frame_size)
         log_debug("usb_counter %02X", usb_counter);
         log_debug("libusb_bulk_transfer failed: %s", libusb_error_name(r));
         cfuc_close_device();
-        cfuc_open_device();
+        cfuc_open_device(&(config.fdcanInitType));
         return -1;
     }
 }
