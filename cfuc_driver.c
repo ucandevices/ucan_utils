@@ -106,6 +106,7 @@ int cfuc_close_device(void)
 }
 
 static UCAN_TxFrameDef cfuc_tx;
+static UCAN_GoToBootladerFrameDef cfuc_boot;
 
 int cfuc_can_tx(struct can_frame *frame, struct timeval *tv)
 {
@@ -118,6 +119,12 @@ int cfuc_can_tx(struct can_frame *frame, struct timeval *tv)
     memcpy((void *)cfuc_tx.can_data, (void *)frame->data, frame->can_dlc);
 
     return cfuc_send_to_usb((uint8_t *)&cfuc_tx, sizeof(cfuc_tx));
+}
+
+int cfuc_canfd_goto_boot(void)
+{
+    cfuc_boot.frame_type = UCAN_FD_GO_TO_BOOTLOADER;
+    return cfuc_get_blocking_from_usb((uint8_t *)&cfuc_boot, sizeof(cfuc_boot));
 }
 
 int cfuc_canfd_tx(struct canfd_frame *frame, struct timeval *tv)

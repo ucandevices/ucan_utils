@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "bin/debug/uccbsocketcan",
-            "args": ["vcan0","usb0"],
+            "args": ["--can_interface=vcan0","--usb_serial=0"],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",
             "environment": [],

@@ -23,6 +23,9 @@
 #include "rust_additional.h"
 #include "ucan_fd_protocol_stm32g431.h"
 #include "log.h"
+#include "cfuc_args.h"
+
+
 
 int readCANFrameFromSocket(int socket, uint8_t *buff, struct timeval *tv)
 {
@@ -87,18 +90,31 @@ int main(int argc, char **argv)
 
 	configuration* cfg = load_cfg("cfuc_adapter.ini");
 
-	if (argc != 3)
+	t_cfuc_args* cfuc_args =  parse_args(argc,argv);
+
+	if (cfuc_args->gotoboot)
 	{
-		fprintf(stderr, "%s: adapter for applications using"
-						" the uCAN USB protocol.\n",
-				basename(argv[0]));
-		fprintf(stderr, "Usage: %s <usb id> <can interface>\n", basename(argv[0]));
-		fprintf(stderr, "\nExamples:\n");
-		fprintf(stderr, "%s can0 usb01  - creates can0 for tinterface for usb device\n\n",
-				basename(argv[0]));
-		fprintf(stderr, "\n");
-		return 1;
+		log_info("GOTOBOOT");
 	}
+
+	if (cfuc_args->can_interface_name == NULL)
+	{
+		return -1;
+	}
+
+
+	// if (argc != 3)
+	// {
+	// 	fprintf(stderr, "%s: adapter for applications using"
+	// 					" the uCAN USB protocol.\n",
+	// 			basename(argv[0]));
+	// 	fprintf(stderr, "Usage: %s <usb id> <can interface>\n", basename(argv[0]));
+	// 	fprintf(stderr, "\nExamples:\n");
+	// 	fprintf(stderr, "%s can0 usb01  - creates can0 for tinterface for usb device\n\n",
+	// 			basename(argv[0]));
+	// 	fprintf(stderr, "\n");
+	// 	return 1;
+	// }
 
 	/* open usblib uccb */
 	if (cfuc_open_device(&(cfg->fdcanInitType)));
@@ -117,7 +133,7 @@ int main(int argc, char **argv)
 	}
 
 	addr.can_family = AF_CAN;
-	addr.can_ifindex = if_nametoindex(argv[2]);
+	addr.can_ifindex = if_nametoindex(cfuc_args->can_interface_name);
 
 	/* interface is ok - try to switch the socket into CAN FD mode */
 	if (setsockopt(s, SOL_CAN_RAW, CAN_RAW_FD_FRAMES,

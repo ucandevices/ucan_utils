@@ -16,6 +16,7 @@ int cfuc_can_tx(struct can_frame* frame, struct timeval * tv);
 int cfuc_canfd_tx(struct canfd_frame* frame, struct timeval * tv);
 
 int cfuc_get_status(void);
+int cfuc_canfd_goto_boot(void);
 int cfuc_send_to_usb(uint8_t *usb_buff, int tranfered);
 
 #endif /* CFUC_DRIVER_H */
