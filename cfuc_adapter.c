@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <linux/netlink.h>
 #include <linux/can.h>
 #include <linux/can/raw.h>
 #include <linux/sockios.h>
@@ -72,6 +73,19 @@ static inline time_t gettime()
 	
 }
 
+uint32_t bitrate_nominal = 1000000; 
+
+struct can_bittiming {
+	__u32 bitrate;		/* Bit-rate in bits/second */
+	__u32 sample_point;	/* Sample point in one-tenth of a percent */
+	__u32 tq;		/* Time quanta (TQ) in nanoseconds */
+	__u32 prop_seg;		/* Propagation segment in TQs */
+	__u32 phase_seg1;	/* Phase buffer segment 1 in TQs */
+	__u32 phase_seg2;	/* Phase buffer segment 2 in TQs */
+	__u32 sjw;		/* Synchronisation jump width in TQs */
+	__u32 brp;		/* Bit-rate prescaler */
+} bt;
+
 int main(int argc, char **argv)
 {
 	static uint8_t can_buff[MAX_CFUC_USB_FRAME_SIZE];
@@ -92,15 +106,17 @@ int main(int argc, char **argv)
 
 	t_cfuc_args* cfuc_args =  parse_args(argc,argv);
 
-	if (cfuc_args->gotoboot)
-	{
-		log_info("GOTOBOOT");
-		cfuc_canfd_goto_boot();
+
+	if ((cfuc_args->can_interface_name == NULL) & (cfuc_args->gotoboot == 0) )
+	{ // wrong params return -1
+		printf("Wrong params type --h for help");
+		return -1;
 	}
 
-	if (cfuc_args->can_interface_name == NULL)
-	{
-		return -1;
+	// extern int cfuc_cal_baudrate (unsigned int bitrate_nominal,struct can_bittiming* bt);
+	if (cfuc_cal_baudrate(100000,&bt)) {
+		printf("%7d ***bitrate not possible***\n", bitrate_nominal);
+		return;
 	}
 
 
@@ -118,12 +134,22 @@ int main(int argc, char **argv)
 	// }
 
 	/* open usblib uccb */
-	if (cfuc_open_device(&(cfg->fdcanInitType)));
+	if (cfuc_open_device(&(cfg->fdcanInitType)))
 	{
 		log_error("error openig USB device");
 		goto usb_not_opened;
 	};
 	log_debug("USB device opened");
+
+
+	if (cfuc_args->gotoboot)
+	{
+		log_info("GOTOBOOT");
+		cfuc_canfd_goto_boot();
+		return 0;
+	}
+
+
 
 	/* open socket */
 	s = socket(PF_CAN, SOCK_RAW, CAN_RAW);

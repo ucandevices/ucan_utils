@@ -124,7 +124,14 @@ int cfuc_can_tx(struct can_frame *frame, struct timeval *tv)
 int cfuc_canfd_goto_boot(void)
 {
     cfuc_boot.frame_type = UCAN_FD_GO_TO_BOOTLOADER;
-    return cfuc_get_blocking_from_usb((uint8_t *)&cfuc_boot, sizeof(cfuc_boot));
+     
+    cfuc_send_to_usb((uint8_t *)&cfuc_boot, sizeof(cfuc_boot));
+    if (cfuc_get_ack((unsigned char *)&ucan_ackframe))
+    {
+        log_error("error ack init");
+        return -1;
+    }
+    return 0;
 }
 
 int cfuc_canfd_tx(struct canfd_frame *frame, struct timeval *tv)
@@ -189,7 +196,7 @@ int cfuc_send_to_usb(uint8_t *usb_buff, int frame_size)
     int tranfered_total = 0;
     int r, i;
 
-    // log_debug("USB %02X< ", frame_size);
+    log_debug("USB %02X< ", frame_size);
     int loop;
     // for (loop = 0; loop < frame_size; loop++)
     //     log_debug("%02X ", usb_buff[tranfered_total + loop]);
@@ -314,7 +321,7 @@ int cfuc_get_blocking_from_usb(uint8_t *usb_buff, int len)
     {
         if (tranfered > 0)
         {
-            // log_debug("USB %02X> ", tranfered);
+            log_debug("USB %02X> ", tranfered);
             int loop;
             // for (loop = 0; loop < tranfered; loop++)
             //     log_debug("%02X ", usb_buff[loop]);
