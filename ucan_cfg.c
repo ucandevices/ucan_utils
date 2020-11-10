@@ -25,15 +25,15 @@ int ini_cfuc_handler(void *user, const char *section, const char *name,
     else if(MATCH("caninit", "Mode"))
     {
         if PARSE ("FDCAN_MODE_INTERNAL_LOOPBACK")
-            c->fdcanInitType.FrameFormat = FDCAN_MODE_INTERNAL_LOOPBACK;
+            c->fdcanInitType.Mode = FDCAN_MODE_INTERNAL_LOOPBACK;
         else if PARSE ("FDCAN_MODE_NORMAL")
-            c->fdcanInitType.FrameFormat = FDCAN_MODE_NORMAL;
+            c->fdcanInitType.Mode = FDCAN_MODE_NORMAL;
         else if PARSE ("FDCAN_MODE_RESTRICTED_OPERATION")
-            c->fdcanInitType.FrameFormat = FDCAN_MODE_RESTRICTED_OPERATION;
+            c->fdcanInitType.Mode = FDCAN_MODE_RESTRICTED_OPERATION;
         else if PARSE ("FDCAN_MODE_BUS_MONITORING")
-            c->fdcanInitType.FrameFormat = FDCAN_MODE_BUS_MONITORING;
+            c->fdcanInitType.Mode = FDCAN_MODE_BUS_MONITORING;
         else if PARSE ("FDCAN_MODE_EXTERNAL_LOOPBACK")
-            c->fdcanInitType.FrameFormat = FDCAN_MODE_EXTERNAL_LOOPBACK;
+            c->fdcanInitType.Mode = FDCAN_MODE_EXTERNAL_LOOPBACK;
         else
             log_error("Unknown FrameFormat");
     }

@@ -10,6 +10,9 @@ t_cfuc_args cfuc_args = {
     0,
     NULL,
     0,
+    0,
+    0,
+    0
 };
 
 
@@ -34,7 +37,10 @@ t_cfuc_args* parse_args(int argc, char **argv)
         OPT_HELP(),
         OPT_BOOLEAN('b', "boot", &cfuc_args.gotoboot, "go to bootlader mode"),
         OPT_STRING('c', "can_interface", &cfuc_args.can_interface_name, "CAN interface"),
-        OPT_INTEGER('u', "usb_serial", &num, "USB CFUC SERIAL ID"),
+        OPT_INTEGER('u', "usb_serial", &cfuc_args.usb_serial, "USB CFUC SERIAL ID"),
+        OPT_INTEGER('d', "data_baud", &cfuc_args.data_baud, "CAN DATA BAUDRATE"),
+        OPT_INTEGER('i', "id_baud", &cfuc_args.id_baud, "ID BAUDRATE"),
+        OPT_BOOLEAN('f', "fd", &cfuc_args.is_fd, "IS CAN_FD"),        
         OPT_END(),
     };
 

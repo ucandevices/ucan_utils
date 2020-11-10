@@ -25,8 +25,7 @@ int usb_counter;
 // init struct
 UCAN_InitFrameDef ucan_initframe = {
     UCAN_FD_INIT,
-    {}
-};
+    {}};
 
 UCAN_AckFrameDef ucan_ackframe;
 
@@ -43,17 +42,66 @@ int cfuc_get_status(void)
     return 0;
 }
 
-int cfuc_open_device(FDCAN_InitTypeDef *init_data)
+int cfuc_find_device(libusb_context *ctx, libusb_device *dev, uint64_t serial)
 {
-    memcpy((void*)&(ucan_initframe.can_init),init_data,sizeof(FDCAN_InitTypeDef));
-    
+    int rc = 1;
+    struct libusb_device_descriptor desc;
+    libusb_device **list;
+    ssize_t num_devs, i;
+
+    num_devs = libusb_get_device_list(ctx, &list);
+
+    libusb_get_device_descriptor(dev, &desc);
+
+    for (i = 0; i < num_devs; ++i)
+    {
+        dev = list[i];
+        if ((desc.idVendor == 0x0775) && (desc.idProduct == 0x1209))
+        {
+            if (serial != 0)
+            {
+                if (desc.iSerialNumber == serial)
+                {
+                    rc = 0;
+                }
+            }
+            else
+            {
+                rc = 0;
+            }
+        }
+    }
+    libusb_free_device_list(list, 1);
+    return rc;
+}
+
+uint64_t cfuc_serial = 0;
+int cfuc_open_device(FDCAN_InitTypeDef *init_data, uint64_t serial)
+{
+    libusb_context *ctx;
+    libusb_device *dev;
+
+    cfuc_serial = serial;
+    memcpy((void *)&(ucan_initframe.can_init), init_data, sizeof(FDCAN_InitTypeDef));
+
+    printf("FF%d\n", ucan_initframe.can_init.FrameFormat);
+
+    if (libusb_init(&ctx) < 0)
+    {
+        log_error("failed to initialise libusb");
+        libusb_exit(ctx);
+        return -1;
+    }
+
+    if (cfuc_find_device(ctx, dev, serial))
+    {
+        log_error("device not found");
+        libusb_exit(ctx);
+        return - 1;
+    }
+
     while (1)
     {
-        if (libusb_init(NULL) < 0)
-        {
-            log_error("failed to initialise libusb");
-            return -1;
-        }
         devh = libusb_open_device_with_vid_pid(NULL, 0x1209, 0x0775);
 
         if (devh == NULL)
@@ -89,7 +137,6 @@ int cfuc_open_device(FDCAN_InitTypeDef *init_data)
     ucan_initframe_err:
         libusb_close(devh);
     ucan_initframe_err2:
-        libusb_exit(NULL);
         usleep(10000);
     }
 
@@ -124,7 +171,7 @@ int cfuc_can_tx(struct can_frame *frame, struct timeval *tv)
 int cfuc_canfd_goto_boot(void)
 {
     cfuc_boot.frame_type = UCAN_FD_GO_TO_BOOTLOADER;
-     
+
     cfuc_send_to_usb((uint8_t *)&cfuc_boot, sizeof(cfuc_boot));
     if (cfuc_get_ack((unsigned char *)&ucan_ackframe))
     {
@@ -187,8 +234,6 @@ int cfuc_canfd_tx(struct canfd_frame *frame, struct timeval *tv)
     return cfuc_send_to_usb((uint8_t *)&cfuc_tx, sizeof(cfuc_tx));
 }
 
-
-
 int cfuc_send_to_usb(uint8_t *usb_buff, int frame_size)
 {
     int tranfered = 0;
@@ -218,7 +263,7 @@ int cfuc_send_to_usb(uint8_t *usb_buff, int frame_size)
         log_debug("usb_counter %02X", usb_counter);
         log_debug("libusb_bulk_transfer failed: %s", libusb_error_name(r));
         cfuc_close_device();
-        cfuc_open_device(&(config.fdcanInitType));
+        cfuc_open_device(&(config.fdcanInitType),cfuc_serial);
         return -1;
     }
 }
@@ -295,7 +340,7 @@ int cfuc_get_frame_from_usb(uint8_t *buff_frame)
             case FDCAN_DLC_BYTES_64:
                 can_len = 64;
                 break;
-            // default:
+                // default:
                 // log_debug("ERR! CANFD> LEN ERR!");
                 // return -1;
             }

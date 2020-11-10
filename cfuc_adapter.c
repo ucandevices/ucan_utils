@@ -105,7 +105,7 @@ int main(int argc, char **argv)
 	configuration* cfg = load_cfg("cfuc_adapter.ini");
 
 	t_cfuc_args* cfuc_args =  parse_args(argc,argv);
-
+ 
 
 	if ((cfuc_args->can_interface_name == NULL) & (cfuc_args->gotoboot == 0) )
 	{ // wrong params return -1
@@ -118,7 +118,6 @@ int main(int argc, char **argv)
 		printf("%7d ***bitrate not possible***\n", bitrate_nominal);
 		return;
 	}
-
 
 	// if (argc != 3)
 	// {
@@ -134,7 +133,7 @@ int main(int argc, char **argv)
 	// }
 
 	/* open usblib uccb */
-	if (cfuc_open_device(&(cfg->fdcanInitType)))
+	if (cfuc_open_device(&(cfg->fdcanInitType),cfuc_args->usb_serial))
 	{
 		log_error("error openig USB device");
 		goto usb_not_opened;
