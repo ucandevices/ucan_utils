@@ -42,18 +42,18 @@ int cfuc_get_status(void)
     }
     return 0;
 }
-static unsigned char usb_serial[10];
+static unsigned char usb_serial[15];
 static struct libusb_device_descriptor desc;
-int cfuc_find_device(libusb_context *ctx, libusb_device *dev,unsigned char* serial)
+libusb_device* cfuc_find_device(libusb_context *ctx, unsigned char* serial)
 {
-    int rc = 1;
+    libusb_device* ret_dev = 0;
     libusb_device **list;
     ssize_t num_devs, i;
 
     num_devs = libusb_get_device_list(ctx, &list);
     for (i = 0; i < num_devs; ++i)
     {
-        dev = list[i];
+        libusb_device *dev = list[i];
         libusb_get_device_descriptor(dev, &desc);
         if ((desc.idVendor == 0x1209) && (desc.idProduct == 0x0775))
         {
@@ -67,23 +67,24 @@ int cfuc_find_device(libusb_context *ctx, libusb_device *dev,unsigned char* seri
                     log_error("USB Serial err %i", l);
                 }
                 libusb_close(h);                
-                
-                log_error("CFUC Serial is %s expected %s",usb_serial,serial);
-               
-                if (strcmp(usb_serial,serial))
+                               
+                if (strcmp(usb_serial,serial) == 0)
                 {
-                    rc = 0;
                     log_error("Serial Match");
+                    ret_dev = dev;
+                } else
+                {
+                    log_error("CFUC Serial is %s expected %s",usb_serial,serial);
                 }
             }
             else
             {
-                rc = 0;
+                ret_dev = dev;
             }
         }
     }
     libusb_free_device_list(list, 1);
-    return rc;
+    return ret_dev;
 }
 
 int cfuc_open_device(FDCAN_InitTypeDef *init_data,unsigned char* serial)
@@ -102,20 +103,21 @@ int cfuc_open_device(FDCAN_InitTypeDef *init_data,unsigned char* serial)
         return -1;
     }
     cfuc_serial = serial;
-    if (cfuc_find_device(ctx, dev, cfuc_serial))
+    dev = cfuc_find_device(ctx, cfuc_serial);
+    if (dev == NULL)
     {
-        log_error("device not found");
+        log_error("device not found NULL error");
         libusb_exit(ctx);
         return -1;
     }
 
     while (1)
     {
-        devh = libusb_open_device_with_vid_pid(NULL, 0x1209, 0x0775);
+        int r = libusb_open(dev, &devh);
 
         if (devh == NULL)
         {
-            log_error("error open");
+            log_error("error open %i", r);
             goto ucan_initframe_err2;
         }
 
