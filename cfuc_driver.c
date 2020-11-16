@@ -17,6 +17,7 @@
 #define RETRY_MAX 5
 
 static struct libusb_device_handle *devh = NULL;
+unsigned char *cfuc_serial = NULL;
 int cfuc_send_to_usb(uint8_t *usb_buff, int tranfered);
 int cfuc_get_ack(uint8_t *buff_frame);
 int cfuc_get_blocking_from_usb(uint8_t *usb_buff, int len);
@@ -43,7 +44,7 @@ int cfuc_get_status(void)
 }
 static unsigned char usb_serial[10];
 static struct libusb_device_descriptor desc;
-int cfuc_find_device(libusb_context *ctx, libusb_device *dev, char* serial)
+int cfuc_find_device(libusb_context *ctx, libusb_device *dev,unsigned char* serial)
 {
     int rc = 1;
     libusb_device **list;
@@ -64,10 +65,9 @@ int cfuc_find_device(libusb_context *ctx, libusb_device *dev, char* serial)
                 if (l != LIBUSB_SUCCESS)
                 {
                     log_error("USB Serial err %i", l);
-                } else
-                {
-                    libusb_close(h);                
                 }
+                libusb_close(h);                
+                
                 log_error("CFUC Serial is %s expected %s",usb_serial,serial);
                
                 if (strcmp(usb_serial,serial))
@@ -101,8 +101,8 @@ int cfuc_open_device(FDCAN_InitTypeDef *init_data,unsigned char* serial)
         libusb_exit(ctx);
         return -1;
     }
-
-    if (cfuc_find_device(ctx, dev, serial))
+    cfuc_serial = serial;
+    if (cfuc_find_device(ctx, dev, cfuc_serial))
     {
         log_error("device not found");
         libusb_exit(ctx);
@@ -243,11 +243,10 @@ int cfuc_canfd_tx(struct canfd_frame *frame, struct timeval *tv)
     return cfuc_send_to_usb((uint8_t *)&cfuc_tx, sizeof(cfuc_tx));
 }
 
-char *cfuc_serial = NULL;
+
 int cfuc_send_to_usb(uint8_t *usb_buff, int frame_size)
 {
     int tranfered = 0;
-    const int MAX_CH_SIZE = 64;
     int tranfered_total = 0;
     int r, i;
 

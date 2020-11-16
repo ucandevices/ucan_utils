@@ -4,7 +4,7 @@
 
 typedef struct 
 {
-    int usb_serial;
+    const char *usb_serial;
     const char *can_interface_name;
     int gotoboot;
     int id_baud;
