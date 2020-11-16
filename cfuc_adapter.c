@@ -112,25 +112,77 @@ int main(int argc, char **argv)
 		printf("Wrong params type --h for help");
 		return -1;
 	}
+	
+	if (cfuc_args->id_baud != -1)
+	{
+		if (cfuc_cal_baudrate(cfuc_args->id_baud,&bt)) {
+			printf("%7d ***id bitrate not possible***\n", bitrate_nominal);
+			return -1;
+		} else
+		{
+			cfg->fdcanInitType.NominalTimeSeg1 = bt.phase_seg1 + bt.prop_seg;
+			cfg->fdcanInitType.NominalTimeSeg2 = bt.phase_seg2;
+			cfg->fdcanInitType.NominalPrescaler = bt.brp;
+			cfg->fdcanInitType.NominalSyncJumpWidth = bt.sjw;
+		}
+	} 
 
-	// extern int cfuc_cal_baudrate (unsigned int bitrate_nominal,struct can_bittiming* bt);
-	if (cfuc_cal_baudrate(100000,&bt)) {
-		printf("%7d ***bitrate not possible***\n", bitrate_nominal);
-		return;
+	if (cfuc_args->data_baud != -1)
+	{
+		if (cfuc_cal_baudrate(cfuc_args->data_baud,&bt)) {
+			printf("%7d ***data bitrate not possible***\n", bitrate_nominal);
+			return -1;
+		} else
+		{
+			cfg->fdcanInitType.DataTimeSeg1 = bt.phase_seg1 + bt.prop_seg;
+			cfg->fdcanInitType.DataTimeSeg2 = bt.phase_seg2;
+			cfg->fdcanInitType.DataPrescaler = bt.brp;
+			cfg->fdcanInitType.DataSyncJumpWidth = bt.sjw;
+		}
 	}
 
-	// if (argc != 3)
-	// {
-	// 	fprintf(stderr, "%s: adapter for applications using"
-	// 					" the uCAN USB protocol.\n",
-	// 			basename(argv[0]));
-	// 	fprintf(stderr, "Usage: %s <usb id> <can interface>\n", basename(argv[0]));
-	// 	fprintf(stderr, "\nExamples:\n");
-	// 	fprintf(stderr, "%s can0 usb01  - creates can0 for tinterface for usb device\n\n",
-	// 			basename(argv[0]));
-	// 	fprintf(stderr, "\n");
-	// 	return 1;
-	// }
+	if (cfuc_args->is_fd != NULL)
+	{
+		switch (cfuc_args->is_fd[0])
+		{
+		case 'c':
+			cfg->fdcanInitType.FrameFormat = FDCAN_FRAME_CLASSIC; 
+			break;
+		case 'b':
+			cfg->fdcanInitType.FrameFormat = FDCAN_FRAME_FD_BRS;
+			break;
+		case 'n':
+			cfg->fdcanInitType.FrameFormat = FDCAN_FRAME_FD_NO_BRS;
+			break;
+		default:
+			printf("FrameFormat argument incorrect");
+			return -1;
+			break;
+		}
+	}
+
+	if (cfuc_args->mode != NULL)
+	{
+		switch (cfuc_args->mode[0])
+		{
+		case 'n':
+			cfg->fdcanInitType.Mode = FDCAN_MODE_NORMAL; 
+			break;
+		case 'm':
+			cfg->fdcanInitType.Mode = FDCAN_MODE_BUS_MONITORING;
+			break;
+		case 'e':
+			cfg->fdcanInitType.Mode = FDCAN_MODE_EXTERNAL_LOOPBACK;
+			break;
+		case 'i':
+			cfg->fdcanInitType.Mode = FDCAN_MODE_INTERNAL_LOOPBACK;
+			break;
+		default:
+			printf("CANMODE argument incorrect");
+			return -1;
+			break;
+		}
+	}
 
 	/* open usblib uccb */
 	if (cfuc_open_device(&(cfg->fdcanInitType),cfuc_args->usb_serial))

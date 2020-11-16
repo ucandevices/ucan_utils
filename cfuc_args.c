@@ -7,12 +7,13 @@
 
 
 t_cfuc_args cfuc_args = {
-    0,
-    NULL,
-    0,
-    0,
-    0,
-    0
+    .usb_serial = 0,
+    .can_interface_name = NULL,
+    .gotoboot = 0,
+    .id_baud = -1,
+    .data_baud = -1,
+    .is_fd = NULL,
+    .mode = NULL
 };
 
 
@@ -37,10 +38,11 @@ t_cfuc_args* parse_args(int argc, char **argv)
         OPT_HELP(),
         OPT_BOOLEAN('b', "boot", &cfuc_args.gotoboot, "go to bootlader mode"),
         OPT_STRING('c', "can_interface", &cfuc_args.can_interface_name, "CAN interface"),
-        OPT_INTEGER('u', "usb_serial", &cfuc_args.usb_serial, "USB CFUC SERIAL ID"),
+        OPT_STRING('u', "usb_serial", &cfuc_args.usb_serial, "USB CFUC SERIAL ID in HEX"),
         OPT_INTEGER('d', "data_baud", &cfuc_args.data_baud, "CAN DATA BAUDRATE"),
         OPT_INTEGER('i', "id_baud", &cfuc_args.id_baud, "ID BAUDRATE"),
-        OPT_BOOLEAN('f', "fd", &cfuc_args.is_fd, "IS CAN_FD"),        
+        OPT_STRING('f', "frame_type", &cfuc_args.is_fd, "'c' for CLASSIC / b for BRS / n for noBRS"),
+        OPT_STRING('m', "mode", &cfuc_args.is_fd, "'n' for NORMAL / 'm' for BUS_MONITORING / 'e' EXTERNAL_LOOPBACK / 'i' INTERNAL_LOOPBACK"),        
         OPT_END(),
     };
 
