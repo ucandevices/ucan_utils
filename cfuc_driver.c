@@ -16,6 +16,9 @@
 #define EP_IN (1 | LIBUSB_ENDPOINT_IN)
 #define RETRY_MAX 5
 
+#define CFUC_VID 0x1209
+#define CFUC_PID 0x0775
+
 static struct libusb_device_handle *devh = NULL;
 unsigned char *cfuc_serial = NULL;
 int cfuc_send_to_usb(uint8_t *usb_buff, int tranfered);
@@ -55,7 +58,7 @@ libusb_device* cfuc_find_device(libusb_context *ctx, unsigned char* serial)
     {
         libusb_device *dev = list[i];
         libusb_get_device_descriptor(dev, &desc);
-        if ((desc.idVendor == 0x1209) && (desc.idProduct == 0x0775))
+        if ((desc.idVendor == CFUC_VID) && (desc.idProduct == CFUC_PID))
         {
             if (serial != 0)
             {
@@ -87,14 +90,23 @@ libusb_device* cfuc_find_device(libusb_context *ctx, unsigned char* serial)
     return ret_dev;
 }
 
-int cfuc_open_device(FDCAN_InitTypeDef *init_data,unsigned char* serial)
+void cfuc_connect_handle()
 {
-    libusb_context *ctx;
-    libusb_device *dev;
+    log_debug("CFUC_CONNECT");
+}
+void cfuc_disconnect_handle()
+{
+    log_debug("CFUC_DISCONNECT");
+}
 
+libusb_device *dev;
+libusb_context *ctx;
+
+int cfuc_init(FDCAN_InitTypeDef *init_data,unsigned char* serial)
+{
     memcpy((void *)&(ucan_initframe.can_init), init_data, sizeof(FDCAN_InitTypeDef));
 
-    printf("FF%d\n", ucan_initframe.can_init.FrameFormat);
+    log_debug("FF%d\n", ucan_initframe.can_init.FrameFormat);
 
     if (libusb_init(&ctx) < 0)
     {
@@ -103,11 +115,20 @@ int cfuc_open_device(FDCAN_InitTypeDef *init_data,unsigned char* serial)
         return -1;
     }
     cfuc_serial = serial;
+
+    libusb_hotplug_register_callback (ctx,LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED,LIBUSB_HOTPLUG_NO_FLAGS,CFUC_VID,CFUC_PID,LIBUSB_HOTPLUG_MATCH_ANY,cfuc_connect_handle,NULL,NULL);
+    libusb_hotplug_register_callback (ctx,LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT,LIBUSB_HOTPLUG_NO_FLAGS,CFUC_VID,CFUC_PID,LIBUSB_HOTPLUG_MATCH_ANY,cfuc_disconnect_handle,NULL,NULL);
+}
+
+
+int cfuc_open_device(void)
+{
+
     dev = cfuc_find_device(ctx, cfuc_serial);
     if (dev == NULL)
     {
         log_error("device not found NULL error");
-        libusb_exit(ctx);
+        // libusb_exit(ctx);
         return -1;
     }
 
@@ -156,9 +177,12 @@ int cfuc_open_device(FDCAN_InitTypeDef *init_data,unsigned char* serial)
 
 int cfuc_close_device(void)
 {
-    libusb_release_interface(devh, 0);
-    libusb_close(devh);
-    libusb_exit(NULL);
+    if (devh != NULL)
+    {
+        libusb_release_interface(devh, 0);
+        // libusb_close(devh);
+    }
+    // libusb_exit(NULL);
 
     return 0;
 }
@@ -274,7 +298,7 @@ int cfuc_send_to_usb(uint8_t *usb_buff, int frame_size)
         log_debug("usb_counter %02X", usb_counter);
         log_debug("libusb_bulk_transfer failed: %s", libusb_error_name(r));
         cfuc_close_device();
-        cfuc_open_device(&(config.fdcanInitType), cfuc_serial);
+        cfuc_open_device();
         return -1;
     }
 }

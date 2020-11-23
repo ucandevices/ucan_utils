@@ -185,7 +185,13 @@ int main(int argc, char **argv)
 	}
 
 	/* open usblib uccb */
-	if (cfuc_open_device(&(cfg->fdcanInitType),cfuc_args->usb_serial))
+	if (cfuc_init(&(cfg->fdcanInitType),cfuc_args->usb_serial))
+	{
+		log_error("error init USBLib");
+		goto usb_not_opened;
+	};
+
+	if (cfuc_open_device())
 	{
 		log_error("error openig USB device");
 		goto usb_not_opened;
@@ -199,7 +205,6 @@ int main(int argc, char **argv)
 		cfuc_canfd_goto_boot();
 		return 0;
 	}
-
 
 
 	/* open socket */
