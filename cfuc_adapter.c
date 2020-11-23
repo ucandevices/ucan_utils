@@ -6,6 +6,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <time.h>
+#include <signal.h>
 
 #include <net/if.h>
 #include <sys/ioctl.h>
@@ -85,6 +86,16 @@ struct can_bittiming {
 	__u32 sjw;		/* Synchronisation jump width in TQs */
 	__u32 brp;		/* Bit-rate prescaler */
 } bt;
+
+void at_exit_handler(int sig)
+{
+	log_debug("exit");
+
+	cfuc_close_device(1);
+	 signal(sig, SIG_IGN);
+	 exit(0);
+	
+}
 
 int main(int argc, char **argv)
 {
@@ -239,6 +250,8 @@ int main(int argc, char **argv)
 	fi.can_mask = 0;
 
 	time_t timestamp = gettime();
+	signal(SIGINT, at_exit_handler);
+
 	while (running)
 	{
 
@@ -268,7 +281,7 @@ int main(int argc, char **argv)
 		usleep(1000);
 	}
 
-	cfuc_close_device();
+	cfuc_close_device(0);
 	close(s);
 usb_not_opened:
 

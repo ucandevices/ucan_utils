@@ -175,14 +175,17 @@ int cfuc_open_device(void)
     return -1;
 }
 
-int cfuc_close_device(void)
+
+int cfuc_close_device(int force)
 {
     if (devh != NULL)
     {
         libusb_release_interface(devh, 0);
-        // libusb_close(devh);
+        if(force)
+             libusb_close(devh);
     }
-    // libusb_exit(NULL);
+    if (force)
+     libusb_exit(NULL);
 
     return 0;
 }
@@ -297,7 +300,7 @@ int cfuc_send_to_usb(uint8_t *usb_buff, int frame_size)
     {
         log_debug("usb_counter %02X", usb_counter);
         log_debug("libusb_bulk_transfer failed: %s", libusb_error_name(r));
-        cfuc_close_device();
+        cfuc_close_device(0);
         cfuc_open_device();
         return -1;
     }
@@ -402,7 +405,7 @@ int cfuc_get_blocking_from_usb(uint8_t *usb_buff, int len)
         if (tranfered > 0)
         {
             log_debug("USB %02X> ", tranfered);
-            int loop;
+            // int loop;
             // for (loop = 0; loop < tranfered; loop++)
             //     log_debug("%02X ", usb_buff[loop]);
             // log_debug("\n");
