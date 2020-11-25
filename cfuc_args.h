@@ -11,6 +11,7 @@ typedef struct
     int data_baud;
     const char *is_fd;
     const char *mode;
+    int verbose;
 }t_cfuc_args;
 
 t_cfuc_args* parse_args(int argc, char **argv);

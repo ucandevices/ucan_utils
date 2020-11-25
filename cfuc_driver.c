@@ -47,9 +47,9 @@ int cfuc_get_status(void)
 }
 static unsigned char usb_serial[15];
 static struct libusb_device_descriptor desc;
-libusb_device* cfuc_find_device(libusb_context *ctx, unsigned char* serial)
+libusb_device *cfuc_find_device(libusb_context *ctx, unsigned char *serial)
 {
-    libusb_device* ret_dev = 0;
+    libusb_device *ret_dev = 0;
     libusb_device **list;
     ssize_t num_devs, i;
 
@@ -67,17 +67,18 @@ libusb_device* cfuc_find_device(libusb_context *ctx, unsigned char* serial)
                 long l = libusb_get_string_descriptor_ascii(h, desc.iSerialNumber, usb_serial, sizeof(usb_serial));
                 if (l != LIBUSB_SUCCESS)
                 {
-                    log_error("USB Serial err %i", l);
+                    log_error("USB Cannot get descriptor err no %i", l);
                 }
-                libusb_close(h);                
-                               
-                if (strcmp(usb_serial,serial) == 0)
+                libusb_close(h);
+
+                if (strcmp(usb_serial, serial) == 0)
                 {
-                    log_error("Serial Match");
+                    log_debug("Serial Match");
                     ret_dev = dev;
-                } else
+                }
+                else
                 {
-                    log_error("CFUC Serial is %s expected %s",usb_serial,serial);
+                    log_error("CFUC Serial is %s expected %s", usb_serial, serial);
                 }
             }
             else
@@ -102,7 +103,7 @@ void cfuc_disconnect_handle()
 libusb_device *dev;
 libusb_context *ctx;
 
-int cfuc_init(FDCAN_InitTypeDef *init_data,unsigned char* serial)
+int cfuc_init(FDCAN_InitTypeDef *init_data, unsigned char *serial)
 {
     memcpy((void *)&(ucan_initframe.can_init), init_data, sizeof(FDCAN_InitTypeDef));
 
@@ -116,10 +117,9 @@ int cfuc_init(FDCAN_InitTypeDef *init_data,unsigned char* serial)
     }
     cfuc_serial = serial;
 
-    libusb_hotplug_register_callback (ctx,LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED,LIBUSB_HOTPLUG_NO_FLAGS,CFUC_VID,CFUC_PID,LIBUSB_HOTPLUG_MATCH_ANY,cfuc_connect_handle,NULL,NULL);
-    libusb_hotplug_register_callback (ctx,LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT,LIBUSB_HOTPLUG_NO_FLAGS,CFUC_VID,CFUC_PID,LIBUSB_HOTPLUG_MATCH_ANY,cfuc_disconnect_handle,NULL,NULL);
+    libusb_hotplug_register_callback(ctx, LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED, LIBUSB_HOTPLUG_NO_FLAGS, CFUC_VID, CFUC_PID, LIBUSB_HOTPLUG_MATCH_ANY, cfuc_connect_handle, NULL, NULL);
+    libusb_hotplug_register_callback(ctx, LIBUSB_HOTPLUG_EVENT_DEVICE_LEFT, LIBUSB_HOTPLUG_NO_FLAGS, CFUC_VID, CFUC_PID, LIBUSB_HOTPLUG_MATCH_ANY, cfuc_disconnect_handle, NULL, NULL);
 }
-
 
 int cfuc_open_device(void)
 {
@@ -175,17 +175,16 @@ int cfuc_open_device(void)
     return -1;
 }
 
-
 int cfuc_close_device(int force)
 {
     if (devh != NULL)
     {
         libusb_release_interface(devh, 0);
-        if(force)
-             libusb_close(devh);
+        if (force)
+            libusb_close(devh);
     }
     if (force)
-     libusb_exit(NULL);
+        libusb_exit(NULL);
 
     return 0;
 }
@@ -271,7 +270,6 @@ int cfuc_canfd_tx(struct canfd_frame *frame, struct timeval *tv)
 
     return cfuc_send_to_usb((uint8_t *)&cfuc_tx, sizeof(cfuc_tx));
 }
-
 
 int cfuc_send_to_usb(uint8_t *usb_buff, int frame_size)
 {
