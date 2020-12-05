@@ -115,7 +115,7 @@ int main(int argc, char **argv)
 
 	if ((cfuc_args->can_interface_name == NULL) & (cfuc_args->gotoboot == 0))
 	{ // wrong params return -1
-		printf("Wrong params type --h for help");
+		printf("Wrong params type --h for help \r\n");
 		return -1;
 	}
 
@@ -130,7 +130,7 @@ int main(int argc, char **argv)
 
 	if (cfuc_args->id_baud != -1)
 	{
-		if (cfuc_cal_baudrate(cfuc_args->id_baud, &bt))
+		if (cfuc_cal_baudrate(cfuc_args->id_baud * 1000, &bt))
 		{
 			printf("%7d ***id bitrate not possible***\n", bitrate_nominal);
 			return -1;
@@ -146,7 +146,7 @@ int main(int argc, char **argv)
 
 	if (cfuc_args->data_baud != -1)
 	{
-		if (cfuc_cal_baudrate(cfuc_args->data_baud, &bt))
+		if (cfuc_cal_baudrate(cfuc_args->data_baud * 1000, &bt))
 		{
 			printf("%7d ***data bitrate not possible***\n", bitrate_nominal);
 			return -1;
@@ -174,7 +174,7 @@ int main(int argc, char **argv)
 			cfg->fdcanInitType.FrameFormat = FDCAN_FRAME_FD_NO_BRS;
 			break;
 		default:
-			printf("FrameFormat argument incorrect");
+			printf("FrameFormat argument incorrect %s\r\n", cfuc_args->is_fd);
 			return -1;
 			break;
 		}

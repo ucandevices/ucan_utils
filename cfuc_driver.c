@@ -36,7 +36,12 @@ UCAN_AckFrameDef ucan_ackframe;
 int cfuc_get_status(void)
 {
     UCAN_Get_CAN_Status status = {UCAN_FD_GET_CAN_STATUS};
-    cfuc_send_to_usb((uint8_t *)&status, sizeof(status));
+    if (cfuc_send_to_usb((uint8_t *)&status, sizeof(status)))
+    {
+        log_debug("Get status reinit");
+        cfuc_close_device(0);
+        cfuc_open_device();
+    }
 
     if (cfuc_get_ack((unsigned char *)&ucan_ackframe))
     {
@@ -52,7 +57,7 @@ libusb_device *cfuc_find_device(libusb_context *ctx, unsigned char *serial)
     libusb_device *ret_dev = 0;
     libusb_device **list;
     ssize_t num_devs, i;
-
+    log_debug("cfuc_find_device");
     num_devs = libusb_get_device_list(ctx, &list);
     for (i = 0; i < num_devs; ++i)
     {
@@ -107,7 +112,7 @@ int cfuc_init(FDCAN_InitTypeDef *init_data, unsigned char *serial)
 {
     memcpy((void *)&(ucan_initframe.can_init), init_data, sizeof(FDCAN_InitTypeDef));
 
-    log_debug("FF%d\n", ucan_initframe.can_init.FrameFormat);
+    log_debug("can_init frame_format %d\n", ucan_initframe.can_init.FrameFormat);
 
     if (libusb_init(&ctx) < 0)
     {
@@ -123,12 +128,11 @@ int cfuc_init(FDCAN_InitTypeDef *init_data, unsigned char *serial)
 
 int cfuc_open_device(void)
 {
-
+shame_start:
     dev = cfuc_find_device(ctx, cfuc_serial);
     if (dev == NULL)
     {
         log_error("device not found NULL error");
-        // libusb_exit(ctx);
         return -1;
     }
 
@@ -154,6 +158,7 @@ int cfuc_open_device(void)
         if (cfuc_send_to_usb((unsigned char *)&ucan_initframe, sizeof(ucan_initframe)))
         {
             log_error("error tx init");
+            goto ucan_initframe_err;
         }
         else
         {
@@ -168,6 +173,20 @@ int cfuc_open_device(void)
         return 0;
     ucan_initframe_err:
         libusb_close(devh);
+        libusb_exit(ctx);
+        log_debug("libusb reinit");
+        if (libusb_init(&ctx) < 0)
+        {
+            log_error("failed to initialise libusb");
+            libusb_exit(ctx);
+            return -1;
+        }
+        else
+        {
+            usleep(10000);
+            goto shame_start;
+        }
+
     ucan_initframe_err2:
         usleep(10000);
     }
@@ -298,10 +317,9 @@ int cfuc_send_to_usb(uint8_t *usb_buff, int frame_size)
     {
         log_debug("usb_counter %02X", usb_counter);
         log_debug("libusb_bulk_transfer failed: %s", libusb_error_name(r));
-        cfuc_close_device(0);
-        cfuc_open_device();
         return -1;
     }
+    return 0;
 }
 
 int cfuc_get_ack(uint8_t *buff_frame)

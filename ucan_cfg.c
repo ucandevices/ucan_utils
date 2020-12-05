@@ -35,7 +35,7 @@ int ini_cfuc_handler(void *user, const char *section, const char *name,
         else if PARSE ("FDCAN_MODE_EXTERNAL_LOOPBACK")
             c->fdcanInitType.Mode = FDCAN_MODE_EXTERNAL_LOOPBACK;
         else
-            log_error("Unknown FrameFormat");
+            log_error("Unknown Mode");
     }
     else if (MATCH("caninit", "AutoRetransmission"))
     {
