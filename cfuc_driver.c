@@ -114,12 +114,13 @@ int cfuc_init(FDCAN_InitTypeDef *init_data, unsigned char *serial)
 
     log_debug("can_init frame_format %d\n", ucan_initframe.can_init.FrameFormat);
 
-    if (libusb_init(&ctx) < 0)
-    {
-        log_error("failed to initialise libusb");
-        libusb_exit(ctx);
-        return -1;
-    }
+    libusb_init(&ctx);
+    // if (libusb_init(&ctx) < 0)
+    // {
+    //     log_error("failed to initialise libusb");
+    //     libusb_exit(ctx);
+    //     return -1;
+    // }
     cfuc_serial = serial;
 
     libusb_hotplug_register_callback(ctx, LIBUSB_HOTPLUG_EVENT_DEVICE_ARRIVED, LIBUSB_HOTPLUG_NO_FLAGS, CFUC_VID, CFUC_PID, LIBUSB_HOTPLUG_MATCH_ANY, cfuc_connect_handle, NULL, NULL);
@@ -202,8 +203,8 @@ int cfuc_close_device(int force)
         if (force)
             libusb_close(devh);
     }
-    if (force)
-        libusb_exit(NULL);
+    // if (force)
+        // libusb_exit(NULL);
 
     return 0;
 }
