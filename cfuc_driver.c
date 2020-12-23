@@ -4,7 +4,6 @@
 #include <signal.h>
 #include <linux/can.h>
 #include <linux/can/raw.h>
-#include <linux/sockios.h>
 
 #include "./stm32g4xx_hal_fdcan.h"
 #include "./ucan_fd_protocol_stm32g431.h"
@@ -33,7 +32,37 @@ UCAN_InitFrameDef ucan_initframe = {
 
 UCAN_AckFrameDef ucan_ackframe;
 
-int cfuc_get_status(void)
+void cfuc_print_status(UCAN_AckFrameDef* ackp)
+{
+            /* print device status can_protocol_status*/
+        printf("CAN_S:");
+        switch (ackp->can_protocol_status.Activity)
+        {
+            case FDCAN_COM_STATE_SYNC:
+                printf("SYNC:");
+            break;
+            case FDCAN_COM_STATE_IDLE:
+                printf("IDLE:");
+            break;
+            case FDCAN_COM_STATE_RX:
+                printf("RX__:");
+            break;
+            case FDCAN_COM_STATE_TX:
+                printf("TX__:");
+            break;
+        }
+        if (ackp->can_protocol_status.ErrorPassive) printf ("ErrA:"); else printf ("ErrP:");
+        if (ackp->can_protocol_status.BusOff) printf ("BussOn_:"); else printf ("BussOff:");        
+        printf("IdErr%1x:", ackp->can_protocol_status.LastErrorCode);
+        printf("DataErr%1x:", ackp->can_protocol_status.DataLastErrorCode);
+        /* print device status can_error_counters*/
+        printf("TxE%1x:", ackp->can_error_counters.TxErrorCnt);
+        printf("RxE%1x:", ackp->can_error_counters.RxErrorCnt);
+        printf("LgE%1x:", ackp->can_error_counters.ErrorLogging);
+        printf("\r\n");
+}
+
+int cfuc_request_status(void)
 {
     UCAN_Get_CAN_Status status = {UCAN_FD_GET_CAN_STATUS};
     if (cfuc_send_to_usb((uint8_t *)&status, sizeof(status)))
@@ -47,6 +76,9 @@ int cfuc_get_status(void)
     {
         log_error("error ack init");
         return -1;
+    } else
+    {
+       
     }
     return 0;
 }
@@ -130,6 +162,7 @@ int cfuc_init(FDCAN_InitTypeDef *init_data, unsigned char *serial)
 int cfuc_open_device(void)
 {
 shame_start:
+    printf("ss\r\n");
     dev = cfuc_find_device(ctx, cfuc_serial);
     if (dev == NULL)
     {
@@ -140,7 +173,7 @@ shame_start:
     while (1)
     {
         int r = libusb_open(dev, &devh);
-
+        printf("openstatus_%d",r);
         if (devh == NULL)
         {
             log_error("error open %i", r);
@@ -151,6 +184,7 @@ shame_start:
 
         if (libusb_claim_interface(devh, 1) < 0)
         {
+            libusb_release_interface(devh,1);
             log_error("error claim if");
             goto ucan_initframe_err;
         }
@@ -173,16 +207,17 @@ shame_start:
         }
         return 0;
     ucan_initframe_err:
-        libusb_close(devh);
-        libusb_exit(ctx);
-        log_debug("libusb reinit");
-        if (libusb_init(&ctx) < 0)
-        {
-            log_error("failed to initialise libusb");
-            libusb_exit(ctx);
-            return -1;
-        }
-        else
+        if (devh != 0) libusb_close(devh);
+        
+        // libusb_exit(ctx);
+        // log_debug("libusb reinit");
+        // if (libusb_init(&ctx) < 0)
+        // {
+        //     log_error("failed to initialise libusb");
+        //     libusb_exit(ctx);
+        //     return -1;
+        // }
+        // else
         {
             usleep(10000);
             goto shame_start;
@@ -212,19 +247,6 @@ int cfuc_close_device(int force)
 static UCAN_TxFrameDef cfuc_tx;
 static UCAN_GoToBootladerFrameDef cfuc_boot;
 
-int cfuc_can_tx(struct can_frame *frame, struct timeval *tv)
-{
-    tv = tv;
-    cfuc_tx.frame_type = UCAN_FD_TX;
-    cfuc_tx.can_tx_header.DataLength = ((uint32_t)(frame->can_dlc)) << 16;
-    cfuc_tx.can_tx_header.FDFormat = FDCAN_CLASSIC_CAN;
-    cfuc_tx.can_tx_header.Identifier = frame->can_id;
-    // cfuc_tx.can_tx_header.TxFrameType = FDCAN_REMOTE_FRAME
-    memcpy((void *)cfuc_tx.can_data, (void *)frame->data, frame->can_dlc);
-
-    return cfuc_send_to_usb((uint8_t *)&cfuc_tx, sizeof(cfuc_tx));
-}
-
 int cfuc_canfd_goto_boot(void)
 {
     cfuc_boot.frame_type = UCAN_FD_GO_TO_BOOTLOADER;
@@ -236,6 +258,22 @@ int cfuc_canfd_goto_boot(void)
         return -1;
     }
     return 0;
+}
+
+int cfuc_can_tx(struct can_frame *frame, struct timeval *tv)
+{
+    tv = tv;
+    cfuc_tx.frame_type = UCAN_FD_TX;
+    cfuc_tx.can_tx_header.DataLength = ((uint32_t)(frame->can_dlc)) << 16;
+    cfuc_tx.can_tx_header.FDFormat = FDCAN_CLASSIC_CAN;
+    cfuc_tx.can_tx_header.Identifier = frame->can_id;
+    // cfuc_tx.can_tx_header.TxFrameType = FDCAN_REMOTE_FRAME
+    memcpy((void *)cfuc_tx.can_data, (void *)frame->data, frame->can_dlc);
+    
+    if (cfuc_send_to_usb((uint8_t *)&cfuc_tx, sizeof(cfuc_tx)))
+        return -1;
+    return cfuc_get_ack((unsigned char *)&ucan_ackframe);
+    
 }
 
 int cfuc_canfd_tx(struct canfd_frame *frame, struct timeval *tv)
@@ -288,7 +326,9 @@ int cfuc_canfd_tx(struct canfd_frame *frame, struct timeval *tv)
 
     log_debug("CANFD< ID:%04X L:%02X", frame->can_id, frame->len);
 
-    return cfuc_send_to_usb((uint8_t *)&cfuc_tx, sizeof(cfuc_tx));
+    if (cfuc_send_to_usb((uint8_t *)&cfuc_tx, sizeof(cfuc_tx)))
+        return -1;
+    return cfuc_get_ack((unsigned char *)&ucan_ackframe);
 }
 
 int cfuc_send_to_usb(uint8_t *usb_buff, int frame_size)
@@ -335,7 +375,9 @@ int cfuc_get_ack(uint8_t *buff_frame)
     {
         log_debug("frame_type is %02X", ack->frame_type);
         return -1;
-    }
+    } 
+    
+    cfuc_print_status(buff_frame);   
     return 0;
 }
 

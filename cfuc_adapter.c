@@ -282,7 +282,7 @@ int main(int argc, char **argv)
 		{
 			timestamp = gettime();
 			// no frame was recived/send to USB for long time check if usb connection pressent
-			cfuc_get_status();
+			cfuc_request_status();
 		}
 		usleep(1000);
 	}
