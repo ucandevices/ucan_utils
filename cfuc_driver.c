@@ -35,30 +35,57 @@ UCAN_AckFrameDef ucan_ackframe;
 void cfuc_print_status(UCAN_AckFrameDef* ackp)
 {
             /* print device status can_protocol_status*/
-        printf("CAN_S:");
+        printf("CAN_S ");
         switch (ackp->can_protocol_status.Activity)
         {
             case FDCAN_COM_STATE_SYNC:
-                printf("SYNC:");
+                printf("SYNC ");
             break;
             case FDCAN_COM_STATE_IDLE:
-                printf("IDLE:");
+                printf("IDLE ");
             break;
             case FDCAN_COM_STATE_RX:
-                printf("RX__:");
+                printf("RX   ");
             break;
             case FDCAN_COM_STATE_TX:
-                printf("TX__:");
+                printf("TX   ");
             break;
         }
-        if (ackp->can_protocol_status.ErrorPassive) printf ("ErrA:"); else printf ("ErrP:");
-        if (ackp->can_protocol_status.BusOff) printf ("BussOn_:"); else printf ("BussOff:");        
-        printf("IdErr%1x:", ackp->can_protocol_status.LastErrorCode);
-        printf("DataErr%1x:", ackp->can_protocol_status.DataLastErrorCode);
+        if (ackp->can_protocol_status.ErrorPassive) printf ("ErrPassive "); else printf ("ErrActive  ");
+        if (ackp->can_protocol_status.BusOff) printf ("BussOff "); else printf ("BussOn  ");        
+        
+        switch (ackp->can_protocol_status.LastErrorCode)
+        {
+            case FDCAN_PROTOCOL_ERROR_NONE:
+                printf("IdErr:NONE ");    
+                break;
+            case FDCAN_PROTOCOL_ERROR_STUFF:
+                printf("IdErr:STUF ");    
+                break;    
+            case FDCAN_PROTOCOL_ERROR_FORM:
+                printf("IdErr:FORM ");    
+                break;
+            case FDCAN_PROTOCOL_ERROR_ACK:
+                printf("IdErr:ACK  ");    
+                break;
+            case FDCAN_PROTOCOL_ERROR_BIT1:
+                printf("IdErr:BIT1 ");    
+                break;
+            case FDCAN_PROTOCOL_ERROR_BIT0:
+                printf("IdErr:BIT0 ");    
+                break;
+            case FDCAN_PROTOCOL_ERROR_CRC:
+                printf("IdErr:CRC  ");    
+                break;
+            default:
+                printf("IdErr:NOCHG ");    
+                break;
+        }
+        // printf("DataErr:%1x ", ackp->can_protocol_status.DataLastErrorCode);
         /* print device status can_error_counters*/
-        printf("TxE%1x:", ackp->can_error_counters.TxErrorCnt);
-        printf("RxE%1x:", ackp->can_error_counters.RxErrorCnt);
-        printf("LgE%1x:", ackp->can_error_counters.ErrorLogging);
+        printf("TxE:%1x ", ackp->can_error_counters.TxErrorCnt);
+        printf("RxE:%1x ", ackp->can_error_counters.RxErrorCnt);
+        printf("LgE:%1x ", ackp->can_error_counters.ErrorLogging);
         printf("\r\n");
 }
 
@@ -162,7 +189,6 @@ int cfuc_init(FDCAN_InitTypeDef *init_data, unsigned char *serial)
 int cfuc_open_device(void)
 {
 shame_start:
-    printf("ss\r\n");
     dev = cfuc_find_device(ctx, cfuc_serial);
     if (dev == NULL)
     {
