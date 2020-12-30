@@ -87,6 +87,8 @@ struct can_bittiming
 void at_exit_handler(int sig)
 {
 	log_debug("exit");
+	printf("exit\r\n");
+	fflush(stdout);
 
 	cfuc_close_device(1);
 	signal(sig, SIG_IGN);
@@ -210,6 +212,15 @@ int main(int argc, char **argv)
 		goto usb_not_opened;
 	};
 
+	struct sigaction sa;
+    sa.sa_handler = at_exit_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART; /* Restart functions if
+                                 interrupted by handler */
+    if (sigaction(SIGINT, &sa, NULL) == -1)
+        /* Handle error */;
+
+
 	if (cfuc_open_device())
 	{
 		log_error("error openig USB device");
@@ -256,27 +267,27 @@ int main(int argc, char **argv)
 	fi.can_mask = 0;
 
 	time_t timestamp = gettime();
-	signal(SIGINT, at_exit_handler);
 
 	while (running)
 	{
-
-		uint8_t ftype = readCANFrameFromSocket(s, can_buff, &tv);
-		if (ftype == CANFD_MTU)
+		if (cfuc_is_connected()) /* only in case USB is connected */
 		{
-			timestamp = gettime();
-			cfuc_canfd_tx((struct canfd_frame *)can_buff, &tv);
-		}
-		else if (ftype == CAN_MTU)
-		{
-			timestamp = gettime();
-			cfuc_can_tx((struct can_frame *)can_buff, &tv);
-		}
-
-		if (cfuc_get_frame_from_usb(can_buff_usb) == 0)
-		{ // new data from usb
-			timestamp = clock();
-			writeCANFrameToSocket(s, can_buff_usb);
+			uint8_t ftype = readCANFrameFromSocket(s, can_buff, &tv);
+			if (ftype == CANFD_MTU)
+			{
+				timestamp = gettime();
+				cfuc_canfd_tx((struct canfd_frame *)can_buff, &tv);
+			}
+			else if (ftype == CAN_MTU)
+			{
+				timestamp = gettime();
+				cfuc_can_tx((struct can_frame *)can_buff, &tv);
+			}
+			if (cfuc_get_frame_from_usb(can_buff_usb) == 0)
+			{ // new data from usb
+				timestamp = clock();
+				writeCANFrameToSocket(s, can_buff_usb);
+			}
 		}
 		if (((gettime() - timestamp)) > (9000))
 		{
@@ -284,7 +295,7 @@ int main(int argc, char **argv)
 			// no frame was recived/send to USB for long time check if usb connection pressent
 			cfuc_request_status();
 		}
-		usleep(1000);
+		usleep(100);
 	}
 
 	cfuc_close_device(0);

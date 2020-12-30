@@ -10,6 +10,7 @@
 
 int cfuc_open_device(void);
 int cfuc_init(FDCAN_InitTypeDef *init_data, unsigned char* serial);
+int cfuc_is_connected();
 
 int cfuc_close_device(int force);
 int cfuc_get_frame_from_usb(uint8_t* buff_frame);

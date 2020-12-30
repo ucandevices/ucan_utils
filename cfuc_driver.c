@@ -111,6 +111,14 @@ int cfuc_request_status(void)
 }
 static unsigned char usb_serial[15];
 static struct libusb_device_descriptor desc;
+
+static int cfuc_connected = 0;
+
+int cfuc_is_connected()
+{
+    return cfuc_connected;
+}
+
 libusb_device *cfuc_find_device(libusb_context *ctx, unsigned char *serial)
 {
     libusb_device *ret_dev = 0;
@@ -157,11 +165,11 @@ libusb_device *cfuc_find_device(libusb_context *ctx, unsigned char *serial)
 
 void cfuc_connect_handle()
 {
-    log_debug("CFUC_CONNECT");
+    log_debug("-----------CFUC_CONNECT-----------");
 }
 void cfuc_disconnect_handle()
 {
-    log_debug("CFUC_DISCONNECT");
+    log_debug("-----------CFUC_DISCONNECT--------------");  
 }
 
 libusb_device *dev;
@@ -198,8 +206,9 @@ shame_start:
 
     while (1)
     {
+        cfuc_connected = 0;
         int r = libusb_open(dev, &devh);
-        printf("openstatus_%d",r);
+        printf("openstatus %d\r\n",r);
         if (devh == NULL)
         {
             log_error("error open %i", r);
@@ -231,6 +240,7 @@ shame_start:
             }
             usb_counter = 0;
         }
+        cfuc_connected = 1;
         return 0;
     ucan_initframe_err:
         if (devh != 0) libusb_close(devh);
@@ -258,15 +268,27 @@ shame_start:
 
 int cfuc_close_device(int force)
 {
+    static int completed;
+    // static struct timeval tv;
+    // tv.tv_sec = 1;
+    cfuc_connected = 0;
     if (devh != NULL)
     {
+        // libusb_handle_events_timeout_completed(ctx,&tv,&completed);
+        printf("e1\r\n");
         libusb_release_interface(devh, 0);
         if (force)
+        {
+            printf("e2\r\n");
             libusb_close(devh);
+            // libusb_exit(NULL);
+        }   
     }
-    // if (force)
-        // libusb_exit(NULL);
-
+    if (force)
+    {
+        printf("e3\r\n");
+        libusb_exit(NULL);
+    }
     return 0;
 }
 
