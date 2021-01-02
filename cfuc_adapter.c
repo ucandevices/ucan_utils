@@ -90,7 +90,8 @@ void at_exit_handler(int sig)
 	printf("exit\r\n");
 	fflush(stdout);
 
-	cfuc_close_device(1);
+	cfuc_close_device();
+	cfuc_deinit();
 	signal(sig, SIG_IGN);
 	exit(0);
 }
@@ -217,19 +218,26 @@ int main(int argc, char **argv)
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = SA_RESTART; /* Restart functions if
                                  interrupted by handler */
-    if (sigaction(SIGINT, &sa, NULL) == -1)
+    if (sigaction(SIGINT, &sa, NULL) == -1){
         /* Handle error */;
+	}
 
 
-	if (cfuc_open_device())
-	{
-		log_error("error openig USB device");
-		goto usb_not_opened;
-	};
-	log_debug("USB device opened");
+	// if (cfuc_open_device())
+	// {
+	// 	log_error("error openig USB device");
+	// 	goto usb_not_opened;
+	// };
+	// log_debug("USB device opened");
 
 	if (cfuc_args->gotoboot)
 	{
+		int cnt = 0;
+		while (cfuc_is_connected() == 0) 
+		{
+			cnt ++; sleep(1); 
+			if (cnt > 3) at_exit_handler(SIG_IGN);
+		}
 		log_info("GOTOBOOT");
 		cfuc_canfd_goto_boot();
 		return 0;
@@ -288,17 +296,18 @@ int main(int argc, char **argv)
 				timestamp = clock();
 				writeCANFrameToSocket(s, can_buff_usb);
 			}
+			if (((gettime() - timestamp)) > (9000))
+			{
+				timestamp = gettime();
+				// no frame was recived/send to USB for long time check if usb connection pressent
+				cfuc_request_status();
+			}
 		}
-		if (((gettime() - timestamp)) > (9000))
-		{
-			timestamp = gettime();
-			// no frame was recived/send to USB for long time check if usb connection pressent
-			cfuc_request_status();
-		}
-		usleep(100);
+		// usleep(100);
+		cfuc_handle_usb_events();
 	}
 
-	cfuc_close_device(0);
+	cfuc_close_device();
 	close(s);
 usb_not_opened:
 
