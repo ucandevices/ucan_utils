@@ -213,6 +213,12 @@ int main(int argc, char **argv)
 		goto usb_not_opened;
 	};
 
+	/* check if device is allready attached */
+	if (cfuc_open_device()  != 0)
+	{
+		log_debug("Wating for device attachment");
+	}
+
 	struct sigaction sa;
     sa.sa_handler = at_exit_handler;
     sigemptyset(&sa.sa_mask);

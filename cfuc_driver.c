@@ -260,6 +260,7 @@ int cfuc_open_device(void)
     if (devh == NULL)
     {
         log_error("error open %i", r);
+        return -1;
         
     }
     cfuc_usb_status = CFUC_USB_OPENED;
