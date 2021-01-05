@@ -223,7 +223,7 @@ int main(int argc, char **argv)
 	/* check if device is allready attached */
 	if (cfuc_open_device()  != 0)
 	{
-		log_debug("Wating for device attachment");
+		log_error("Wating for device attachment");
 	}
 
 	/* add exit signal  */

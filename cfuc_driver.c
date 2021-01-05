@@ -106,7 +106,7 @@ int cfuc_request_status(void)
 
     if (cfuc_get_ack((unsigned char *)&ucan_ackframe))
     {
-        log_error("error ack init");
+        log_debug("error ack init");
         return -1;
     } else
     {
@@ -174,13 +174,13 @@ libusb_device *cfuc_find_device(libusb_context *ctx, unsigned char *serial)
 void cfuc_connect_handle_f(struct libusb_context *ctx, struct libusb_device *dev,
                      libusb_hotplug_event event, void *user_data)
 {
-    log_debug("-----------CFUC_CONNECT-----------");
+    log_error("CFUC_CONNECT");
     cfuc_open_device();
 }
 void cfuc_disconnect_handle_f(struct libusb_context *ctx, struct libusb_device *dev,
                      libusb_hotplug_event event, void *user_data)
 {
-    log_debug("-----------CFUC_DISCONNECT--------------");          
+    log_error("CFUC_DISCONNECT");          
     cfuc_close_device();
 }
 
@@ -213,7 +213,7 @@ int cfuc_handle_usb_events(void)
             log_debug("INIT ACK");
             if (cfuc_get_ack((unsigned char *)&ucan_ackframe))
             {
-                log_error("error ack init");
+                log_debug("error ack init");
             } else {
                 cfuc_usb_status = CFUC_CAN_OPENED;
             }
@@ -263,7 +263,7 @@ int cfuc_open_device(void)
     }
 
     int r = libusb_open(dev, &devh);
-    printf("libusb_open %d\r\n",r);
+    // printf("libusb_open %d\r\n",r);
     if (devh == NULL)
     {
         log_error("error open %i", r);
@@ -307,7 +307,7 @@ int cfuc_canfd_goto_boot(void)
     cfuc_send_to_usb((uint8_t *)&cfuc_boot, sizeof(cfuc_boot));
     if (cfuc_get_ack((unsigned char *)&ucan_ackframe))
     {
-        log_error("error ack init");
+        log_debug("error ack init");
         return -1;
     }
     return 0;
