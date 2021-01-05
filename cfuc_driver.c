@@ -1,3 +1,10 @@
+/**
+ * Copyright (C) uCAN Devices 
+ * Use of this source code is governed by a MIT-style license that can be found
+ * in the LICENSE file.
+ * 
+ * brief handlig libusb and can fd converter USB protocol
+**/
 #include <stdio.h>
 #include <string.h>
 #include <libusb.h>

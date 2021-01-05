@@ -1,3 +1,10 @@
+/**
+ * Copyright (C) uCAN Devices 
+ * Use of this source code is governed by a MIT-style license that can be found
+ * in the LICENSE file.
+ * 
+ * brief Configuration for command line arguments
+**/
 #include <fcntl.h>
 #include <libgen.h>
 #include <stdio.h>

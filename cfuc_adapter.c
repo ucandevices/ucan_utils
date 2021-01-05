@@ -1,3 +1,10 @@
+/**
+ * Copyright (C) uCAN Devices 
+ * Use of this source code is governed by a MIT-style license that can be found
+ * in the LICENSE file.
+ * 
+**/
+
 #include <fcntl.h>
 #include <libgen.h>
 #include <stdio.h>
@@ -115,7 +122,7 @@ int main(int argc, char **argv)
 	configuration *cfg = load_cfg("cfuc_adapter.ini");
 
 	t_cfuc_args *cfuc_args = parse_args(argc, argv);
-
+	/* parse arguments */
 	if ((cfuc_args->can_interface_name == NULL) & (cfuc_args->gotoboot == 0))
 	{ // wrong params return -1
 		printf("Wrong params type --h for help \r\n");
@@ -219,6 +226,7 @@ int main(int argc, char **argv)
 		log_debug("Wating for device attachment");
 	}
 
+	/* add exit signal  */
 	struct sigaction sa;
     sa.sa_handler = at_exit_handler;
     sigemptyset(&sa.sa_mask);
@@ -228,14 +236,7 @@ int main(int argc, char **argv)
         /* Handle error */;
 	}
 
-
-	// if (cfuc_open_device())
-	// {
-	// 	log_error("error openig USB device");
-	// 	goto usb_not_opened;
-	// };
-	// log_debug("USB device opened");
-
+	/* check for bootlader flag */
 	if (cfuc_args->gotoboot)
 	{
 		int cnt = 0;
