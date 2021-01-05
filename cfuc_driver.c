@@ -365,7 +365,17 @@ int cfuc_canfd_tx(struct canfd_frame *frame, struct timeval *tv)
             return -1;
         }
     }
+    if (frame->flags & CANFD_BRS)
+        cfuc_tx.can_tx_header.BitRateSwitch =  FDCAN_BRS_ON;
+    else 
+        cfuc_tx.can_tx_header.BitRateSwitch =  FDCAN_BRS_OFF;
 
+    if (frame->flags & CANFD_ESI)
+        cfuc_tx.can_tx_header.ErrorStateIndicator = FDCAN_ESI_PASSIVE;
+    else 
+        cfuc_tx.can_tx_header.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+
+    
     cfuc_tx.can_tx_header.FDFormat = FDCAN_FD_CAN;
     cfuc_tx.can_tx_header.Identifier = frame->can_id;
     memcpy((void *)cfuc_tx.can_data, (void *)frame->data, frame->len);
@@ -493,6 +503,10 @@ int cfuc_get_frame_from_usb(uint8_t *buff_frame)
 
             fdcan->can_id = rx->can_rx_header.Identifier;
             fdcan->len = can_len;
+            fdcan->flags = 0;
+            if (rx->can_rx_header.BitRateSwitch) fdcan->flags |= CANFD_BRS;
+            if (rx->can_rx_header.ErrorStateIndicator == FDCAN_ESI_PASSIVE) fdcan->flags |= CANFD_ESI;
+            
             log_debug("CANFD> ID:%04X L:%02X", fdcan->can_id, fdcan->len);
             memcpy((void *)fdcan->data, (void *)rx->can_data, can_len);
             return 0;
