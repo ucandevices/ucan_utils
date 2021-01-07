@@ -200,13 +200,13 @@ int cfuc_handle_usb_events(void)
         if (libusb_claim_interface(devh, 1) < 0)
         {
             libusb_release_interface(devh,1);
-            log_error("error claim if");
+            log_debug("error claim if");
         }
 
         log_debug("INIT CAN");
         if (cfuc_send_to_usb((unsigned char *)&ucan_initframe, sizeof(ucan_initframe)))
         {
-            log_error("error tx init");
+            log_debug("error tx init");
         }
         else
         {
