@@ -25,6 +25,7 @@
 #include <linux/netlink.h>
 #include <linux/can.h>
 #include <linux/can/raw.h>
+#include <errno.h>
 #include <linux/sockios.h>
 
 #include "ucan_cfg.h"
@@ -34,17 +35,20 @@
 #include "log.h"
 #include "cfuc_args.h"
 
+	static int counter = 0;
+
 int readCANFrameFromSocket(int socket, uint8_t *buff, struct timeval *tv)
 {
 	int nbytes;
+
 	nbytes = read(socket, buff, CANFD_MTU);
 	if (nbytes == CANFD_MTU)
 	{
-		log_debug("SCAN> FD CAN len %d", ((struct canfd_frame *)buff)->len);
+	    log_debug("SCAN> FD %d [%d]", ((struct canfd_frame *)buff)->can_id,((struct canfd_frame *)buff)->len);		
 	}
 	else if (nbytes == CAN_MTU)
 	{
-		log_debug("SCAN> CAN len %d", ((struct can_frame *)buff)->can_dlc);
+		log_debug("SCAN> %d [%d]", ((struct can_frame *)buff)->can_id, ((struct can_frame *)buff)->can_dlc);
 	}
 	else
 	{
@@ -61,14 +65,15 @@ int readCANFrameFromSocket(int socket, uint8_t *buff, struct timeval *tv)
 }
 
 int writeCANFrameToSocket(int socket, uint8_t *frame)
-{
-	// /* send frame */
-	log_info("SCAN< %d", frame[0]);
+{	
 	if (write(socket, frame, CANFD_MTU) != CANFD_MTU)
 	{
-		perror("write");
-		return 1;
+		if (errno != ENOBUFS) {
+			perror("write");
+			return 1;
+		}	
 	}
+	log_debug("SCAN< FD %d [%d]", ((struct canfd_frame *)frame)->can_id,((struct canfd_frame *)frame)->len);	
 	return 0;
 }
 

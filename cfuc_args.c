@@ -26,8 +26,8 @@ t_cfuc_args cfuc_args = {
 
 
 static const char *const usage[] = {
-    "test_argparse [options] [[--] args]",
-    "test_argparse [options]",
+    "cfuc_adapter [options] [[--] args]",
+    "cfuc_adapter [options]",
     NULL,
 };
 
@@ -57,7 +57,7 @@ t_cfuc_args* parse_args(int argc, char **argv)
 
     struct argparse argparse;
     argparse_init(&argparse, options, usage, 0);
-    argparse_describe(&argparse, "\nAdapter for applications using the uCAN USB protocol.", "\nExample: cfuc_adapter can0 21354  - attaches to can0 socketCAN interface usb device with serial 21354.");
+    argparse_describe(&argparse, "\nAdapter for applications using the uCAN USB protocol(V1.0). Any not specified argument is taken from cfuc_adapter.ini. See also cfuc_adapter.ini file for additional options.", "\nExample: cfuc_adapter can0 21354  - attaches to can0 socketCAN interface usb device with serial 21354.");
     argc = argparse_parse(&argparse, argc, argv);
     return &cfuc_args;
 }
