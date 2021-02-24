@@ -514,7 +514,7 @@ int cfuc_get_frame_from_usb(uint8_t *buff_frame)
             if (rx->can_rx_header.BitRateSwitch) fdcan->flags |= CANFD_BRS;
             if (rx->can_rx_header.ErrorStateIndicator == FDCAN_ESI_PASSIVE) fdcan->flags |= CANFD_ESI;
             
-            log_debug("CANFD> ID:%04X L:%02X", fdcan->can_id, fdcan->len);
+            log_debug("CANFD> ID:%04X L:%02X Q:%03X", fdcan->can_id, fdcan->len, rx->packed_flags_and_error_counters);
             memcpy((void *)fdcan->data, (void *)rx->can_data, can_len);
             return 0;
         }
