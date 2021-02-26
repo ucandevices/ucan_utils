@@ -104,16 +104,19 @@ typedef struct {
 	UCAN_FRAME_TYPE frame_type;  /*!< Frame type is @ref UCAN_FD_GET_CAN_STATUS.*/
 } UCAN_Get_CAN_Status;
 
-/**
-  * @brief UCAN_FD_RX frame structure
-  */
 typedef struct {
-	UCAN_FRAME_TYPE frame_type; /*!< Frame type is @ref UCAN_FD_GET_STATUS.*/
 	FDCAN_RxHeaderTypeDef can_rx_header; /*!< FDCAN Rx header structure definition @ref FDCAN_RxHeaderTypeDef.*/
-	uint8_t can_data[MAX_CAN_FRAME_SIZE]; /* Data CAN buffer */
+	uint8_t can_data[64]; /* Data CAN buffer */
 	uint32_t packed_flags_and_error_counters;
-} UCAN_RxFrameDef;
+} ucan_can_rx_def;
 
+#define UCAN_RX_FRAME_DEF_CAN_COUNT_MAX 10u
+
+typedef struct {
+	UCAN_FRAME_TYPE frame_type; /*!< Frame type is @ref UCAN_FD_RX.*/
+	uint32_t can_frame_count;
+	ucan_can_rx_def can_frame[UCAN_RX_FRAME_DEF_CAN_COUNT_MAX];
+} UCAN_RxFrameDef;
 /**
   * @brief UCAN_FD_ACK frame structure
   */

@@ -446,7 +446,7 @@ int cfuc_get_ack(uint8_t *buff_frame)
     return 0;
 }
 
-int cfuc_get_frame_from_usb(uint8_t *buff_frame)
+int cfuc_get_frame_from_usb(struct can_frame *buff_frame_can, int *no_can, struct canfd_frame *buff_frame_fdcan, int *no_fd)
 {
     static uint8_t usb_buff[MAX_CFUC_USB_FRAME_SIZE] = {0, 1, 2, 3, 4};
 
@@ -454,71 +454,79 @@ int cfuc_get_frame_from_usb(uint8_t *buff_frame)
     {
         // log_debug("CANFD0> Err");
         return -1;
-    }    
-    UCAN_RxFrameDef *rx = (UCAN_RxFrameDef *)usb_buff;
-    if (rx->frame_type == UCAN_FD_RX)
+    }   
+    UCAN_RxFrameDef *rx_p = (UCAN_RxFrameDef *)usb_buff;     
+    if (rx_p->frame_type == UCAN_FD_RX)
     {
-        if (rx->can_rx_header.FDFormat == FDCAN_CLASSIC_CAN)
+        log_debug("UCAN_FD_RX");
+        *no_can = 0;
+        *no_fd = 0;
+        for (int i = 0; i < rx_p->can_frame_count; i++)
         {
-            struct can_frame *can = (struct can_frame *)buff_frame;
-
-            uint32_t can_len = rx->can_rx_header.DataLength >> 16;
-            can->can_id = rx->can_rx_header.Identifier;
-            can->can_dlc = can_len;
-            memcpy((void *)can->data, (void *)rx->can_data, can_len);
-            log_debug("CAN> ID:%04X L:%02X D:%02X %02X %02X %02X %02X", can->can_id, can->can_dlc, can->data[0], can->data[1], can->data[2], can->data[3], can->data[4]);
-            return 0;
-        }
-        else // FDCAN
-        {
-            struct canfd_frame *fdcan = (struct canfd_frame *)buff_frame;
-            uint8_t can_len = rx->can_rx_header.DataLength >> 16;
-            // log_debug("CANFD2>");
-            switch (rx->can_rx_header.DataLength)
+            ucan_can_rx_def *rx = &(rx_p->can_frame[i]);
+            if (rx->can_rx_header.FDFormat == FDCAN_CLASSIC_CAN)
             {
-            case FDCAN_DLC_BYTES_12:
-                can_len = 12;
-                break;
-
-            case FDCAN_DLC_BYTES_16:
-                can_len = 16;
-                break;
-
-            case FDCAN_DLC_BYTES_20:
-                can_len = 20;
-                break;
-
-            case FDCAN_DLC_BYTES_24:
-                can_len = 24;
-                break;
-
-            case FDCAN_DLC_BYTES_32:
-                can_len = 32;
-                break;
-
-            case FDCAN_DLC_BYTES_48:
-                can_len = 48;
-                break;
-
-            case FDCAN_DLC_BYTES_64:
-                can_len = 64;
-                break;
-                // default:
-                // log_debug("ERR! CANFD> LEN ERR!");
-                // return -1;
+                struct can_frame *can = &(buff_frame_can[i]);
+                uint32_t can_len = rx->can_rx_header.DataLength >> 16;
+                (*no_can) ++;
+                can->can_id = rx->can_rx_header.Identifier;
+                can->can_dlc = can_len;
+                memcpy((void *)can->data, (void *)rx->can_data, can_len);
+                log_debug("CAN> ID:%04X L:%02X D:%02X %02X %02X %02X %02X", can->can_id, can->can_dlc, can->data[0], can->data[1], can->data[2], can->data[3], can->data[4]);
             }
+            else // FDCAN
+            {
+                struct canfd_frame *fdcan = &(buff_frame_fdcan[i]);
+                uint8_t can_len = rx->can_rx_header.DataLength >> 16;
+                (*no_fd) ++;
+                // log_debug("CANFD2>");
+                switch (rx->can_rx_header.DataLength)
+                {
+                case FDCAN_DLC_BYTES_12:
+                    can_len = 12;
+                    break;
 
-            fdcan->can_id = rx->can_rx_header.Identifier;
-            fdcan->len = can_len;
-            fdcan->flags = 0;
-            if (rx->can_rx_header.BitRateSwitch) fdcan->flags |= CANFD_BRS;
-            if (rx->can_rx_header.ErrorStateIndicator == FDCAN_ESI_PASSIVE) fdcan->flags |= CANFD_ESI;
+                case FDCAN_DLC_BYTES_16:
+                    can_len = 16;
+                    break;
+
+                case FDCAN_DLC_BYTES_20:
+                    can_len = 20;
+                    break;
+
+                case FDCAN_DLC_BYTES_24:
+                    can_len = 24;
+                    break;
+
+                case FDCAN_DLC_BYTES_32:
+                    can_len = 32;
+                    break;
+
+                case FDCAN_DLC_BYTES_48:
+                    can_len = 48;
+                    break;
+
+                case FDCAN_DLC_BYTES_64:
+                    can_len = 64;
+                    break;
+                    // default:
+                    // log_debug("ERR! CANFD> LEN ERR!");
+                    // return -1;
+                }
+                fdcan->can_id = rx->can_rx_header.Identifier;
+                fdcan->len = can_len;
+                fdcan->flags = 0;
+                if (rx->can_rx_header.BitRateSwitch) fdcan->flags |= CANFD_BRS;
+                if (rx->can_rx_header.ErrorStateIndicator == FDCAN_ESI_PASSIVE) fdcan->flags |= CANFD_ESI;
             
-            log_debug("CANFD> ID:%04X L:%02X Q:%03X", fdcan->can_id, fdcan->len, rx->packed_flags_and_error_counters);
-            memcpy((void *)fdcan->data, (void *)rx->can_data, can_len);
-            return 0;
+                log_debug("CANFD> ID:%04X L:%02X Q:%03X", fdcan->can_id, fdcan->len, rx->packed_flags_and_error_counters);
+                memcpy((void *)fdcan->data, (void *)rx->can_data, can_len);
+            }
         }
-    }
+        return rx_p->can_frame_count; 
+    } 
+    
+
     return -1;
 }
 

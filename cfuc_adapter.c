@@ -111,7 +111,11 @@ void at_exit_handler(int sig)
 int main(int argc, char **argv)
 {
 	static uint8_t can_buff[MAX_CFUC_USB_FRAME_SIZE];
-	static uint8_t can_buff_usb[MAX_CFUC_USB_FRAME_SIZE];
+	static struct can_frame classic_can_buff[UCAN_RX_FRAME_DEF_CAN_COUNT_MAX];
+	static struct canfd_frame fd_can_buff[UCAN_RX_FRAME_DEF_CAN_COUNT_MAX];
+	static int no_can;
+	static int no_fd;
+
 
 	int s; /* can raw socket */
 	struct sockaddr_can addr;
@@ -303,10 +307,20 @@ int main(int argc, char **argv)
 				timestamp = gettime();
 				cfuc_can_tx((struct can_frame *)can_buff, &tv);
 			}
-			if (cfuc_get_frame_from_usb(can_buff_usb) == 0)
+
+			
+			
+			if (cfuc_get_frame_from_usb(classic_can_buff, &no_can, fd_can_buff, &no_fd) != -1)
 			{ // new data from usb
 				timestamp = clock();
-				writeCANFrameToSocket(s, can_buff_usb);
+				for (int i =0; i < no_can; i++)
+				{
+					writeCANFrameToSocket(s, &(classic_can_buff[i]));
+				}
+				for (int i =0; i < no_fd; i++)
+				{
+					writeCANFrameToSocket(s, &(fd_can_buff[i]));
+				}
 			}
 			if (((gettime() - timestamp)) > (9000))
 			{

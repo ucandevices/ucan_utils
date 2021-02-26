@@ -6,7 +6,7 @@
 #include <sys/types.h>
 #include "rust_additional.h"
 
-#define MAX_CFUC_USB_FRAME_SIZE (256U)
+#define MAX_CFUC_USB_FRAME_SIZE (1000U)
 
 typedef enum {
     CFUC_USB_INIT,
@@ -23,7 +23,7 @@ int cfuc_handle_usb_events(void);
 CFUC_USB_STATUS cfuc_is_connected();
 int cfuc_close_device(void);
 
-int cfuc_get_frame_from_usb(uint8_t* buff_frame);
+int cfuc_get_frame_from_usb(struct can_frame *buff_frame_can, int *no_can, struct canfd_frame *buff_frame_fdcan, int *no_fd);
 
 int cfuc_can_tx(struct can_frame* frame, struct timeval * tv);
 int cfuc_canfd_tx(struct canfd_frame* frame, struct timeval * tv);
